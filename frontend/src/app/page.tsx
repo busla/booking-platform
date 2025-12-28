@@ -1,15 +1,19 @@
 /**
- * Summerhouse Chat Page
+ * Quesada Apartment Chat Page
  *
  * Main chat interface for the vacation rental booking assistant.
- * Uses Vercel AI SDK v6 with ai-elements components.
+ * Uses direct browser-to-AgentCore communication via SigV4 signing.
+ *
+ * Architecture Note:
+ * Since this is a static export (S3 + CloudFront), there are no API routes.
+ * The browser calls AgentCore Runtime directly using Cognito Identity Pool
+ * credentials for anonymous IAM authentication.
  */
 
 'use client'
 
-import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport } from 'ai'
 import { useState, useRef, useCallback } from 'react'
+import { useAgentChat } from '@/hooks/useAgentChat'
 import {
   Conversation,
   ConversationContent,
@@ -61,12 +65,8 @@ export default function ChatPage() {
   // AI SDK v6: input state is now managed separately from useChat
   const [input, setInput] = useState('')
 
-  // AI SDK v6 useChat hook with transport-based architecture
-  const { messages, status, error, sendMessage } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-    }),
-  })
+  // Direct browser-to-AgentCore chat (no API route needed for static export)
+  const { messages, status, error, sendMessage } = useAgentChat()
 
   const isLoading = status === 'streaming' || status === 'submitted'
 
@@ -110,43 +110,32 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="app-container">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
-          <SunIcon className="text-yellow-500 w-8 h-8" />
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900">Summerhouse</h1>
-            <p className="text-xs text-gray-500">Vacation Rental Booking Assistant</p>
-          </div>
-        </div>
-      </header>
-
+    <div className="chat-page">
       {/* Chat Area */}
-      <main className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
+      <div className="chat-container max-w-4xl mx-auto w-full">
         <Conversation className="flex-1 flex flex-col">
           <ConversationContent className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 ? (
               <ConversationEmptyState
                 icon={<SunIcon className="text-yellow-500" />}
-                title="Welcome to Summerhouse!"
+                title="Welcome to Quesada Apartment!"
                 description="I'm your booking assistant for our beautiful vacation rental in Quesada, Alicante. Ask me about availability, pricing, the property, or the local area."
               >
                 <div className="mt-4 flex flex-wrap gap-2 justify-center">
                   <SuggestionButton
-                    onClick={() => setInput('What dates are available?')}
+                    onClick={() => sendMessage({ text: 'What dates are available?' })}
                     label="Check availability"
                   />
                   <SuggestionButton
-                    onClick={() => setInput('How much does it cost to stay?')}
+                    onClick={() => sendMessage({ text: 'How much does it cost to stay?' })}
                     label="See pricing"
                   />
                   <SuggestionButton
-                    onClick={() => setInput('Tell me about the property')}
+                    onClick={() => sendMessage({ text: 'Tell me about the property' })}
                     label="Property details"
                   />
                   <SuggestionButton
-                    onClick={() => setInput("What's there to do nearby?")}
+                    onClick={() => sendMessage({ text: "What's there to do nearby?" })}
                     label="Local attractions"
                   />
                 </div>
@@ -208,7 +197,7 @@ export default function ChatPage() {
             Press Enter to send, Shift+Enter for new line
           </p>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

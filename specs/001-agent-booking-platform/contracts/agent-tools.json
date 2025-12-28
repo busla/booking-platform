@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Summerhouse Agent Tool Definitions",
+  "title": "Booking Agent Tool Definitions",
   "description": "Strands @tool decorator definitions mapping to MCP tools",
   "version": "1.0.0",
   "metadata": {
@@ -15,22 +15,22 @@
       "file": "backend/src/tools/availability.py",
       "tools": ["check_availability", "get_calendar"],
       "dependencies": ["boto3", "datetime"],
-      "dynamodb_tables": ["summerhouse-{env}-availability"]
+      "dynamodb_tables": ["booking-{env}-availability"]
     },
     "pricing": {
       "file": "backend/src/tools/pricing.py",
       "tools": ["get_pricing", "calculate_total"],
       "dependencies": ["boto3", "datetime", "decimal"],
-      "dynamodb_tables": ["summerhouse-{env}-pricing"]
+      "dynamodb_tables": ["booking-{env}-pricing"]
     },
     "reservations": {
       "file": "backend/src/tools/reservations.py",
       "tools": ["create_reservation", "get_reservation", "cancel_reservation", "modify_reservation"],
       "dependencies": ["boto3", "uuid", "datetime"],
       "dynamodb_tables": [
-        "summerhouse-{env}-reservations",
-        "summerhouse-{env}-availability",
-        "summerhouse-{env}-guests"
+        "booking-{env}-reservations",
+        "booking-{env}-availability",
+        "booking-{env}-guests"
       ]
     },
     "payments": {
@@ -38,8 +38,8 @@
       "tools": ["process_payment"],
       "dependencies": ["boto3", "uuid"],
       "dynamodb_tables": [
-        "summerhouse-{env}-payments",
-        "summerhouse-{env}-reservations"
+        "booking-{env}-payments",
+        "booking-{env}-reservations"
       ],
       "notes": "MVP uses mock payment provider - always succeeds"
     },
@@ -60,8 +60,8 @@
       "tools": ["initiate_verification", "verify_code", "get_guest_info"],
       "dependencies": ["boto3", "aws-cognito-identity-provider"],
       "dynamodb_tables": [
-        "summerhouse-{env}-guests",
-        "summerhouse-{env}-verification-codes"
+        "booking-{env}-guests",
+        "booking-{env}-verification-codes"
       ],
       "cognito_resources": [
         "user_pool_id",

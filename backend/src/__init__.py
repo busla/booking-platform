@@ -1,1 +1,1 @@
-# Summerhouse Backend - Agent-First Vacation Rental Booking Platform
+# Quesada Apartment Booking Backend - Agent-First Vacation Rental Booking Platform

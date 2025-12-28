@@ -31,35 +31,90 @@ output "dynamodb_verification_codes_table_name" {
   value       = module.dynamodb.verification_codes_table_name
 }
 
-# Cognito Outputs (uncomment when cognito-passwordless module is available)
-# output "cognito_user_pool_id" {
-#   description = "Cognito User Pool ID"
-#   value       = module.cognito.user_pool_id
-# }
-#
-# output "cognito_user_pool_client_id" {
-#   description = "Cognito User Pool Client ID"
-#   value       = module.cognito.user_pool_client_id
-# }
+# Cognito Outputs
+output "cognito_user_pool_id" {
+  description = "Cognito User Pool ID"
+  value       = module.cognito.user_pool_id
+}
 
-# AgentCore Outputs (uncomment when agentcore module is configured)
-# output "agentcore_endpoint" {
-#   description = "AgentCore Runtime endpoint URL"
-#   value       = module.agentcore.endpoint_url
-# }
+output "cognito_user_pool_arn" {
+  description = "Cognito User Pool ARN"
+  value       = module.cognito.user_pool_arn
+}
 
-# Static Website Outputs (uncomment when static-website module is available)
-# output "cloudfront_distribution_id" {
-#   description = "CloudFront distribution ID"
-#   value       = module.static_website.distribution_id
-# }
-#
-# output "cloudfront_domain_name" {
-#   description = "CloudFront distribution domain name"
-#   value       = module.static_website.domain_name
-# }
-#
-# output "s3_bucket_name" {
-#   description = "S3 bucket name for frontend assets"
-#   value       = module.static_website.bucket_name
-# }
+output "cognito_client_id" {
+  description = "Cognito User Pool Client ID"
+  value       = module.cognito.client_id
+}
+
+output "cognito_issuer_url" {
+  description = "JWT issuer URL for token validation"
+  value       = module.cognito.issuer_url
+}
+
+output "cognito_anonymous_user_email" {
+  description = "Email for the shared anonymous user (empty if anonymous access is disabled)"
+  value       = module.cognito.anonymous_user_email
+}
+
+output "cognito_identity_pool_id" {
+  description = "Cognito Identity Pool ID for IAM-based auth"
+  value       = module.cognito.identity_pool_id
+}
+
+output "cognito_identity_pool_arn" {
+  description = "Cognito Identity Pool ARN"
+  value       = module.cognito.identity_pool_arn
+}
+
+output "cognito_unauthenticated_role_arn" {
+  description = "IAM Role ARN for unauthenticated Identity Pool users"
+  value       = module.cognito.unauthenticated_role_arn
+}
+
+# AgentCore Outputs
+output "agentcore_runtime_id" {
+  description = "AgentCore Runtime ID"
+  value       = module.agentcore.runtime["booking"].runtime_id
+}
+
+output "agentcore_runtime_arn" {
+  description = "AgentCore Runtime ARN"
+  value       = module.agentcore.runtime["booking"].runtime_arn
+}
+
+output "agentcore_custom_endpoints" {
+  description = "AgentCore Runtime custom endpoints"
+  value       = module.agentcore.runtime["booking"].custom_endpoints
+}
+
+output "agentcore_memory_id" {
+  description = "AgentCore Memory ID (if enabled)"
+  value       = var.enable_agentcore_memory ? module.agentcore.memory.memory_id : null
+}
+
+# Static Website Outputs
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID"
+  value       = module.static_website.cloudfront_distribution_id
+}
+
+output "cloudfront_domain_name" {
+  description = "CloudFront distribution domain name"
+  value       = module.static_website.cloudfront_domain_name
+}
+
+output "website_url" {
+  description = "Full URL of the website"
+  value       = module.static_website.website_url
+}
+
+output "s3_bucket_name" {
+  description = "S3 bucket name for frontend assets"
+  value       = module.static_website.bucket_name
+}
+
+output "frontend_deploy_command" {
+  description = "Command to deploy frontend to S3"
+  value       = module.static_website.deploy_command
+}

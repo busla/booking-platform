@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
-  title: Summerhouse Booking API
+  title: Booking API
   description: |
-    REST API for the Summerhouse vacation rental booking platform.
+    REST API for the Booking vacation rental platform.
 
     This API primarily serves the frontend chat interface and provides:
     - Chat endpoint for agent conversations (streaming via Vercel AI SDK)
@@ -13,13 +13,13 @@ info:
     Direct API access is limited to supporting the chat interface.
   version: 1.0.0
   contact:
-    name: Summerhouse API Support
-    email: support@summerhouse.example
+    name: Booking API Support
+    email: support@booking.example
 
 servers:
-  - url: https://api.summerhouse.example/v1
+  - url: https://api.booking.example/v1
     description: Production server
-  - url: https://api-dev.summerhouse.example/v1
+  - url: https://api-dev.booking.example/v1
     description: Development server
   - url: http://localhost:3001/api
     description: Local development
@@ -41,7 +41,7 @@ paths:
         - Chat
       summary: Send message to booking agent
       description: |
-        Stream a conversation with the Summerhouse booking agent.
+        Stream a conversation with the booking agent.
         Uses Vercel AI SDK streaming protocol.
 
         The agent can:

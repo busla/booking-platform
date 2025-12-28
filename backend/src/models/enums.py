@@ -1,4 +1,4 @@
-"""Enumeration types for Summerhouse data models."""
+"""Enumeration types for Quesada Apartment Booking data models."""
 
 from enum import Enum
 
@@ -17,8 +17,10 @@ class PaymentStatus(str, Enum):
 
     PENDING = "pending"
     PAID = "paid"
+    COMPLETED = "completed"  # Alias for paid, used in some contexts
     REFUNDED = "refunded"
     PARTIAL_REFUND = "partial_refund"
+    CANCELLED = "cancelled"  # No refund given
 
 
 class AvailabilityStatus(str, Enum):

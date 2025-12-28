@@ -1,4 +1,4 @@
-"""Pydantic models for Summerhouse data entities."""
+"""Pydantic models for Quesada Apartment Booking data entities."""
 
 from .availability import (
     Availability,
@@ -29,6 +29,23 @@ from .area_info import (
     AreaInfoResponse,
     RecommendationRequest,
     RecommendationResponse,
+)
+from .property import (
+    Address,
+    Coordinates,
+    Photo,
+    PhotoCategory,
+    PhotosResponse,
+    Property,
+    PropertyDetailsResponse,
+    PropertySummary,
+)
+from .errors import (
+    BookingError,
+    ErrorCode,
+    ERROR_MESSAGES,
+    ERROR_RECOVERY,
+    ToolError,
 )
 
 __all__ = [
@@ -70,4 +87,19 @@ __all__ = [
     "AreaInfoResponse",
     "RecommendationRequest",
     "RecommendationResponse",
+    # Property
+    "Address",
+    "Coordinates",
+    "Photo",
+    "PhotoCategory",
+    "PhotosResponse",
+    "Property",
+    "PropertyDetailsResponse",
+    "PropertySummary",
+    # Errors
+    "BookingError",
+    "ErrorCode",
+    "ERROR_MESSAGES",
+    "ERROR_RECOVERY",
+    "ToolError",
 ]

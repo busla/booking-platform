@@ -1,4 +1,4 @@
-# Summerhouse Backend
+# Quesada Apartment Booking Backend
 
 Agent-First Vacation Rental Booking Platform - Backend powered by Strands Agents.
 

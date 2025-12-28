@@ -82,7 +82,7 @@ class TestConversationContext:
         )
         assert result1 is not None
         response1 = str(result1).lower()
-        assert "summerhouse" in response1 or "help" in response1 or "book" in response1
+        assert "quesada" in response1 or "help" in response1 or "book" in response1
 
         # Turn 2: Specify dates
         result2 = agent(

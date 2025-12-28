@@ -1,9 +1,9 @@
-"""FastAPI application for Summerhouse backend."""
+"""FastAPI application for Quesada Apartment Booking backend."""
 
 from fastapi import FastAPI
 
 app = FastAPI(
-    title="Summerhouse API",
+    title="Quesada Apartment Booking API",
     description="Agent-First Vacation Rental Booking Platform",
     version="0.1.0",
 )

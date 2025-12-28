@@ -1,4 +1,4 @@
-"""Summerhouse Booking Agent using Strands framework."""
+"""Quesada Apartment Booking Agent using Strands framework."""
 
 import os
 from pathlib import Path
@@ -21,7 +21,7 @@ def _load_system_prompt() -> str:
 
 
 def create_booking_agent(tools: list[Any] | None = None) -> Agent:
-    """Create and configure the Summerhouse booking agent.
+    """Create and configure the Quesada Apartment booking agent.
 
     Args:
         tools: List of tools to provide to the agent. If None, uses ALL_TOOLS.

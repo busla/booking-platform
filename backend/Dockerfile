@@ -1,4 +1,4 @@
-# Summerhouse Backend - AgentCore Runtime Container
+# Quesada Apartment Booking Backend - AgentCore Runtime Container
 # Platform: linux/arm64 (required by AgentCore Runtime)
 
 FROM --platform=linux/arm64 ghcr.io/astral-sh/uv:python3.13-bookworm-slim
@@ -6,7 +6,8 @@ FROM --platform=linux/arm64 ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 WORKDIR /app
 
 # Copy dependency files first for better caching
-COPY pyproject.toml uv.lock ./
+# Note: README.md is required because pyproject.toml references it
+COPY pyproject.toml uv.lock README.md ./
 
 # Install production dependencies only (no dev deps)
 RUN uv sync --frozen --no-cache --no-dev

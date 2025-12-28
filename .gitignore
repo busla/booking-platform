@@ -85,3 +85,6 @@ yarn-error.log*
 *.bak
 *.tmp
 .cache/
+.terraform
+.env.*
+tsconfig.tsbuildinfo

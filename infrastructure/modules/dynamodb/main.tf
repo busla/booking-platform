@@ -1,159 +1,201 @@
 # DynamoDB Tables for Summerhouse
-# Defines all tables per data-model.md specification
+# Uses terraform-aws-modules/dynamodb-table/aws and cloudposse/label/null
+#
+# Tables defined per data-model.md specification:
+# - reservations: Booking records with GSIs for guest and status queries
+# - guests: Guest profiles with email lookup
+# - availability: Date-based availability
+# - pricing: Seasonal pricing
+# - payments: Payment records linked to reservations
+# - verification_codes: Auth codes with TTL
+#
+# Pattern: Single label module with context from root, suffixes for individual tables
 
+terraform {
+  required_version = ">= 1.5.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
+    }
+  }
+}
+
+# -----------------------------------------------------------------------------
+# CloudPosse Label - inherits context from root, sets component name
+# -----------------------------------------------------------------------------
+
+module "label" {
+  source  = "cloudposse/label/null"
+  version = "~> 0.25"
+
+  # Inherit namespace, environment, tags from root context
+  context = var.context
+
+  # Component name for this module
+  name = "data"
+}
+
+# -----------------------------------------------------------------------------
 # Reservations Table
-resource "aws_dynamodb_table" "reservations" {
-  name         = "${var.name_prefix}-reservations"
+# -----------------------------------------------------------------------------
+
+module "reservations" {
+  source  = "terraform-aws-modules/dynamodb-table/aws"
+  version = "~> 5.0"
+
+  name     = "${module.label.id}-reservations"
+  hash_key = "reservation_id"
+
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "reservation_id"
 
-  attribute {
-    name = "reservation_id"
-    type = "S"
-  }
-
-  attribute {
-    name = "guest_id"
-    type = "S"
-  }
-
-  attribute {
-    name = "status"
-    type = "S"
-  }
-
-  attribute {
-    name = "check_in"
-    type = "S"
-  }
+  attributes = [
+    { name = "reservation_id", type = "S" },
+    { name = "guest_id", type = "S" },
+    { name = "status", type = "S" },
+    { name = "check_in", type = "S" }
+  ]
 
   # GSI for querying by guest with check_in sort
-  global_secondary_index {
-    name            = "guest-checkin-index"
-    hash_key        = "guest_id"
-    range_key       = "check_in"
-    projection_type = "ALL"
-  }
+  global_secondary_indexes = [
+    {
+      name            = "guest-checkin-index"
+      hash_key        = "guest_id"
+      range_key       = "check_in"
+      projection_type = "ALL"
+    },
+    {
+      name            = "status-index"
+      hash_key        = "status"
+      range_key       = "check_in"
+      projection_type = "ALL"
+    }
+  ]
 
-  # GSI for querying by status with check_in sort
-  global_secondary_index {
-    name            = "status-index"
-    hash_key        = "status"
-    range_key       = "check_in"
-    projection_type = "ALL"
-  }
-
-  tags = {
-    Table = "reservations"
-  }
+  tags = module.label.tags
 }
 
+# -----------------------------------------------------------------------------
 # Guests Table
-resource "aws_dynamodb_table" "guests" {
-  name         = "${var.name_prefix}-guests"
+# -----------------------------------------------------------------------------
+
+module "guests" {
+  source  = "terraform-aws-modules/dynamodb-table/aws"
+  version = "~> 5.0"
+
+  name     = "${module.label.id}-guests"
+  hash_key = "guest_id"
+
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "guest_id"
 
-  attribute {
-    name = "guest_id"
-    type = "S"
-  }
-
-  attribute {
-    name = "email"
-    type = "S"
-  }
+  attributes = [
+    { name = "guest_id", type = "S" },
+    { name = "email", type = "S" }
+  ]
 
   # GSI for querying by email
-  global_secondary_index {
-    name            = "email-index"
-    hash_key        = "email"
-    projection_type = "ALL"
-  }
+  global_secondary_indexes = [
+    {
+      name            = "email-index"
+      hash_key        = "email"
+      projection_type = "ALL"
+    }
+  ]
 
-  tags = {
-    Table = "guests"
-  }
+  tags = module.label.tags
 }
 
+# -----------------------------------------------------------------------------
 # Availability Table
-resource "aws_dynamodb_table" "availability" {
-  name         = "${var.name_prefix}-availability"
+# -----------------------------------------------------------------------------
+
+module "availability" {
+  source  = "terraform-aws-modules/dynamodb-table/aws"
+  version = "~> 5.0"
+
+  name     = "${module.label.id}-availability"
+  hash_key = "date"
+
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "date"
 
-  attribute {
-    name = "date"
-    type = "S"
-  }
+  attributes = [
+    { name = "date", type = "S" }
+  ]
 
-  tags = {
-    Table = "availability"
-  }
+  tags = module.label.tags
 }
 
+# -----------------------------------------------------------------------------
 # Pricing Table
-resource "aws_dynamodb_table" "pricing" {
-  name         = "${var.name_prefix}-pricing"
+# -----------------------------------------------------------------------------
+
+module "pricing" {
+  source  = "terraform-aws-modules/dynamodb-table/aws"
+  version = "~> 5.0"
+
+  name     = "${module.label.id}-pricing"
+  hash_key = "season_id"
+
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "season_id"
 
-  attribute {
-    name = "season_id"
-    type = "S"
-  }
+  attributes = [
+    { name = "season_id", type = "S" }
+  ]
 
-  tags = {
-    Table = "pricing"
-  }
+  tags = module.label.tags
 }
 
+# -----------------------------------------------------------------------------
 # Payments Table
-resource "aws_dynamodb_table" "payments" {
-  name         = "${var.name_prefix}-payments"
+# -----------------------------------------------------------------------------
+
+module "payments" {
+  source  = "terraform-aws-modules/dynamodb-table/aws"
+  version = "~> 5.0"
+
+  name     = "${module.label.id}-payments"
+  hash_key = "payment_id"
+
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "payment_id"
 
-  attribute {
-    name = "payment_id"
-    type = "S"
-  }
-
-  attribute {
-    name = "reservation_id"
-    type = "S"
-  }
+  attributes = [
+    { name = "payment_id", type = "S" },
+    { name = "reservation_id", type = "S" }
+  ]
 
   # GSI for querying by reservation
-  global_secondary_index {
-    name            = "reservation-index"
-    hash_key        = "reservation_id"
-    projection_type = "ALL"
-  }
+  global_secondary_indexes = [
+    {
+      name            = "reservation-index"
+      hash_key        = "reservation_id"
+      projection_type = "ALL"
+    }
+  ]
 
-  tags = {
-    Table = "payments"
-  }
+  tags = module.label.tags
 }
 
+# -----------------------------------------------------------------------------
 # Verification Codes Table (with TTL)
-resource "aws_dynamodb_table" "verification_codes" {
-  name         = "${var.name_prefix}-verification-codes"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "email"
+# -----------------------------------------------------------------------------
 
-  attribute {
-    name = "email"
-    type = "S"
-  }
+module "verification_codes" {
+  source  = "terraform-aws-modules/dynamodb-table/aws"
+  version = "~> 5.0"
+
+  name     = "${module.label.id}-verification-codes"
+  hash_key = "email"
+
+  billing_mode = "PAY_PER_REQUEST"
+
+  attributes = [
+    { name = "email", type = "S" }
+  ]
 
   # TTL for automatic expiration
-  ttl {
-    attribute_name = "expires_at"
-    enabled        = true
-  }
+  ttl_enabled        = true
+  ttl_attribute_name = "expires_at"
 
-  tags = {
-    Table = "verification-codes"
-  }
+  tags = module.label.tags
 }

@@ -2,72 +2,72 @@
 
 output "reservations_table_name" {
   description = "Name of the reservations table"
-  value       = aws_dynamodb_table.reservations.name
+  value       = module.reservations.dynamodb_table_id
 }
 
 output "reservations_table_arn" {
   description = "ARN of the reservations table"
-  value       = aws_dynamodb_table.reservations.arn
+  value       = module.reservations.dynamodb_table_arn
 }
 
 output "guests_table_name" {
   description = "Name of the guests table"
-  value       = aws_dynamodb_table.guests.name
+  value       = module.guests.dynamodb_table_id
 }
 
 output "guests_table_arn" {
   description = "ARN of the guests table"
-  value       = aws_dynamodb_table.guests.arn
+  value       = module.guests.dynamodb_table_arn
 }
 
 output "availability_table_name" {
   description = "Name of the availability table"
-  value       = aws_dynamodb_table.availability.name
+  value       = module.availability.dynamodb_table_id
 }
 
 output "availability_table_arn" {
   description = "ARN of the availability table"
-  value       = aws_dynamodb_table.availability.arn
+  value       = module.availability.dynamodb_table_arn
 }
 
 output "pricing_table_name" {
   description = "Name of the pricing table"
-  value       = aws_dynamodb_table.pricing.name
+  value       = module.pricing.dynamodb_table_id
 }
 
 output "pricing_table_arn" {
   description = "ARN of the pricing table"
-  value       = aws_dynamodb_table.pricing.arn
+  value       = module.pricing.dynamodb_table_arn
 }
 
 output "payments_table_name" {
   description = "Name of the payments table"
-  value       = aws_dynamodb_table.payments.name
+  value       = module.payments.dynamodb_table_id
 }
 
 output "payments_table_arn" {
   description = "ARN of the payments table"
-  value       = aws_dynamodb_table.payments.arn
+  value       = module.payments.dynamodb_table_arn
 }
 
 output "verification_codes_table_name" {
   description = "Name of the verification codes table"
-  value       = aws_dynamodb_table.verification_codes.name
+  value       = module.verification_codes.dynamodb_table_id
 }
 
 output "verification_codes_table_arn" {
   description = "ARN of the verification codes table"
-  value       = aws_dynamodb_table.verification_codes.arn
+  value       = module.verification_codes.dynamodb_table_arn
 }
 
 output "table_arns" {
   description = "List of all table ARNs for IAM policies"
   value = [
-    aws_dynamodb_table.reservations.arn,
-    aws_dynamodb_table.guests.arn,
-    aws_dynamodb_table.availability.arn,
-    aws_dynamodb_table.pricing.arn,
-    aws_dynamodb_table.payments.arn,
-    aws_dynamodb_table.verification_codes.arn,
+    module.reservations.dynamodb_table_arn,
+    module.guests.dynamodb_table_arn,
+    module.availability.dynamodb_table_arn,
+    module.pricing.dynamodb_table_arn,
+    module.payments.dynamodb_table_arn,
+    module.verification_codes.dynamodb_table_arn,
   ]
 }

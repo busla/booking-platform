@@ -1,4 +1,4 @@
-"""Pytest configuration and fixtures for Summerhouse backend tests.
+"""Pytest configuration and fixtures for Quesada Apartment Booking backend tests.
 
 This module provides reusable fixtures for testing:
 - DynamoDB mocking with moto
@@ -22,7 +22,7 @@ from moto import mock_aws
 # Only set fake credentials if no real AWS credentials are configured
 # This allows integration tests to use real AWS credentials via AWS_PROFILE
 os.environ.setdefault("AWS_DEFAULT_REGION", "eu-west-1")
-os.environ.setdefault("DYNAMODB_TABLE_PREFIX", "test-summerhouse")
+os.environ.setdefault("DYNAMODB_TABLE_PREFIX", "test-booking")
 
 # Use Haiku model for tests by default (faster and cheaper than Opus)
 # Can be overridden by setting BEDROCK_MODEL_ID explicitly
@@ -77,7 +77,7 @@ def create_tables(dynamodb_client: Any) -> None:
     """Create all required DynamoDB tables for testing."""
     tables = [
         {
-            "TableName": "test-summerhouse-reservations",
+            "TableName": "test-booking-reservations",
             "KeySchema": [{"AttributeName": "reservation_id", "KeyType": "HASH"}],
             "AttributeDefinitions": [
                 {"AttributeName": "reservation_id", "AttributeType": "S"},
@@ -99,7 +99,7 @@ def create_tables(dynamodb_client: Any) -> None:
             "BillingMode": "PAY_PER_REQUEST",
         },
         {
-            "TableName": "test-summerhouse-guests",
+            "TableName": "test-booking-guests",
             "KeySchema": [{"AttributeName": "guest_id", "KeyType": "HASH"}],
             "AttributeDefinitions": [
                 {"AttributeName": "guest_id", "AttributeType": "S"},
@@ -115,7 +115,7 @@ def create_tables(dynamodb_client: Any) -> None:
             "BillingMode": "PAY_PER_REQUEST",
         },
         {
-            "TableName": "test-summerhouse-availability",
+            "TableName": "test-booking-availability",
             "KeySchema": [
                 {"AttributeName": "date", "KeyType": "HASH"},
             ],
@@ -125,7 +125,7 @@ def create_tables(dynamodb_client: Any) -> None:
             "BillingMode": "PAY_PER_REQUEST",
         },
         {
-            "TableName": "test-summerhouse-pricing",
+            "TableName": "test-booking-pricing",
             "KeySchema": [
                 {"AttributeName": "season", "KeyType": "HASH"},
             ],
@@ -135,7 +135,7 @@ def create_tables(dynamodb_client: Any) -> None:
             "BillingMode": "PAY_PER_REQUEST",
         },
         {
-            "TableName": "test-summerhouse-payments",
+            "TableName": "test-booking-payments",
             "KeySchema": [{"AttributeName": "payment_id", "KeyType": "HASH"}],
             "AttributeDefinitions": [
                 {"AttributeName": "payment_id", "AttributeType": "S"},
@@ -151,7 +151,7 @@ def create_tables(dynamodb_client: Any) -> None:
             "BillingMode": "PAY_PER_REQUEST",
         },
         {
-            "TableName": "test-summerhouse-verification-codes",
+            "TableName": "test-booking-verification-codes",
             "KeySchema": [{"AttributeName": "email", "KeyType": "HASH"}],
             "AttributeDefinitions": [
                 {"AttributeName": "email", "AttributeType": "S"},

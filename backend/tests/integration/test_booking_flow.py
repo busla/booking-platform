@@ -74,17 +74,17 @@ def aws_credentials() -> Generator[None, None, None]:
 def dynamodb_tables(aws_credentials: None) -> Generator[Any, None, None]:
     """Create all DynamoDB tables needed for the booking flow.
 
-    Table names follow the pattern: summerhouse-{environment}-{table}
+    Table names follow the pattern: booking-{environment}-{table}
     where table names use underscores (e.g., verification_codes).
     """
     with mock_aws():
         client = boto3.client("dynamodb", region_name="eu-west-1")
 
         # Table names must match what DynamoDBService._table_name() produces
-        # with ENVIRONMENT=test: summerhouse-test-{table}
+        # with ENVIRONMENT=test: booking-test-{table}
         tables = [
             {
-                "TableName": "summerhouse-test-reservations",
+                "TableName": "booking-test-reservations",
                 "KeySchema": [{"AttributeName": "reservation_id", "KeyType": "HASH"}],
                 "AttributeDefinitions": [
                     {"AttributeName": "reservation_id", "AttributeType": "S"},
@@ -92,7 +92,7 @@ def dynamodb_tables(aws_credentials: None) -> Generator[Any, None, None]:
                 "BillingMode": "PAY_PER_REQUEST",
             },
             {
-                "TableName": "summerhouse-test-guests",
+                "TableName": "booking-test-guests",
                 "KeySchema": [{"AttributeName": "guest_id", "KeyType": "HASH"}],
                 "AttributeDefinitions": [
                     {"AttributeName": "guest_id", "AttributeType": "S"},
@@ -108,7 +108,7 @@ def dynamodb_tables(aws_credentials: None) -> Generator[Any, None, None]:
                 "BillingMode": "PAY_PER_REQUEST",
             },
             {
-                "TableName": "summerhouse-test-availability",
+                "TableName": "booking-test-availability",
                 "KeySchema": [{"AttributeName": "date", "KeyType": "HASH"}],
                 "AttributeDefinitions": [
                     {"AttributeName": "date", "AttributeType": "S"},
@@ -116,7 +116,7 @@ def dynamodb_tables(aws_credentials: None) -> Generator[Any, None, None]:
                 "BillingMode": "PAY_PER_REQUEST",
             },
             {
-                "TableName": "summerhouse-test-pricing",
+                "TableName": "booking-test-pricing",
                 "KeySchema": [{"AttributeName": "season", "KeyType": "HASH"}],
                 "AttributeDefinitions": [
                     {"AttributeName": "season", "AttributeType": "S"},
@@ -125,7 +125,7 @@ def dynamodb_tables(aws_credentials: None) -> Generator[Any, None, None]:
             },
             {
                 # Note: table is "payments" not "payment"
-                "TableName": "summerhouse-test-payments",
+                "TableName": "booking-test-payments",
                 "KeySchema": [{"AttributeName": "payment_id", "KeyType": "HASH"}],
                 "AttributeDefinitions": [
                     {"AttributeName": "payment_id", "AttributeType": "S"},
@@ -142,7 +142,7 @@ def dynamodb_tables(aws_credentials: None) -> Generator[Any, None, None]:
             },
             {
                 # Note: underscore not hyphen - matches tool's db.put_item("verification_codes", ...)
-                "TableName": "summerhouse-test-verification_codes",
+                "TableName": "booking-test-verification_codes",
                 "KeySchema": [{"AttributeName": "email", "KeyType": "HASH"}],
                 "AttributeDefinitions": [
                     {"AttributeName": "email", "AttributeType": "S"},
@@ -161,7 +161,7 @@ def dynamodb_tables(aws_credentials: None) -> Generator[Any, None, None]:
 def seed_availability(dynamodb_tables: Any) -> None:
     """Seed availability data for testing."""
     resource = boto3.resource("dynamodb", region_name="eu-west-1")
-    table = resource.Table("summerhouse-test-availability")
+    table = resource.Table("booking-test-availability")
 
     # Create available dates for July 2025
     for day in range(1, 32):
@@ -374,7 +374,7 @@ class TestGuestVerificationFlow:
         if not verification_code:
             # Fallback: get from database
             resource = boto3.resource("dynamodb", region_name="eu-west-1")
-            table = resource.Table("summerhouse-test-verification-codes")
+            table = resource.Table("booking-test-verification-codes")
             code_item = table.get_item(Key={"email": email}).get("Item")
             assert code_item is not None
             verification_code = code_item["code"]

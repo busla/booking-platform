@@ -7,31 +7,25 @@
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Conversational Booking Flow (Priority: P1)
+### User Story 1 - Conversational Inquiry Flow (Priority: P1)
 
-A potential guest visits the Summerhouse website and is immediately greeted by an AI agent. Instead of navigating traditional menus, they simply tell the agent what they're looking for: "I want to book a week in March for my family of 4." The agent checks availability, shows relevant dates, displays apartment photos when asked, explains pricing, and guides them through the complete booking process—all through natural conversation.
+A potential guest visits the Booking website and is immediately greeted by an AI agent. Instead of navigating traditional menus, they simply tell the agent what they're looking for: "I want to visit in March with my family of 4." The agent checks availability, shows relevant dates, displays apartment photos when asked, and explains pricing—all through natural conversation. **No sign-up or authentication required.**
 
-**Why this priority**: This is the core value proposition. Without conversational booking, there is no product. It validates the entire agent-first architecture.
+**Why this priority**: This is the core value proposition. Without conversational interaction, there is no product. It validates the entire agent-first architecture with frictionless anonymous access.
 
-**Independent Test**: Can be fully tested by having a user complete an end-to-end booking through conversation alone, resulting in a confirmed reservation with payment.
+**Independent Test**: Can be fully tested by having a user ask availability, pricing, and property questions through conversation alone, receiving accurate responses without any authentication.
 
 **Acceptance Scenarios**:
 
-1. **Given** a visitor lands on the website, **When** the page loads, **Then** the AI agent greets them with a welcoming message and invites conversation (no navigation menus required).
+1. **Given** a visitor lands on the website, **When** the page loads, **Then** the AI agent greets them with a welcoming message and invites conversation (no sign-up or authentication required).
 
 2. **Given** a user asks "Do you have availability in March?", **When** the agent processes the request, **Then** it displays available date ranges with pricing information within the conversation.
 
-3. **Given** a user says "I'd like to book March 15-22 for 2 adults and 2 children", **When** the agent confirms availability, **Then** it presents a booking summary with total price and asks if they would like to proceed with the reservation.
+3. **Given** a user says "What would it cost for March 15-22 for 2 adults and 2 children?", **When** the agent checks pricing, **Then** it presents a price breakdown with nightly rate, cleaning fee, and total.
 
-4. **Given** a user confirms they want to proceed with booking, **When** the agent has not yet collected their email, **Then** it requests the guest's email address to verify their identity.
+4. **Given** a user asks "Can I see photos of the apartment?", **When** the agent responds, **Then** it displays a gallery of apartment images within the conversation interface.
 
-5. **Given** a user provides their email address, **When** the agent processes it, **Then** it sends a 6-digit verification code to that email and informs the user to check their inbox.
-
-6. **Given** a verification code has been sent, **When** the user provides the 6-digit code, **Then** the agent verifies it and proceeds to collect remaining guest details (name, phone, number of guests).
-
-7. **Given** a user has provided all required booking details and verified their email, **When** they confirm the booking, **Then** the agent initiates payment collection and sends confirmation upon successful payment.
-
-8. **Given** a user asks "Can I see photos of the apartment?", **When** the agent responds, **Then** it displays a gallery of apartment images within the conversation interface.
+5. **Given** a user asks about booking, **When** the agent responds, **Then** it provides contact information or instructions for making a reservation (booking flow deferred to future iteration).
 
 ---
 
@@ -97,15 +91,15 @@ A user wants to understand exactly what the apartment offers before booking. The
 
 ---
 
-### User Story 5 - Booking Management (Priority: P5)
+### User Story 5 - Booking Management (Priority: DEFERRED)
+
+> **⚠️ DEFERRED TO FUTURE ITERATION**: This user story requires the reservation feature which is out of scope for MVP.
 
 An existing guest needs to modify or cancel their reservation, or retrieve their booking confirmation. They interact with the agent using their booking reference or email address to access and manage their reservation.
 
-**Why this priority**: Essential for operational completeness but fewer users need this than new bookings.
+**Why deferred**: Requires reservation/booking capability which is being implemented in a future iteration.
 
-**Independent Test**: Can be tested by creating a booking, then retrieving and modifying it through conversation.
-
-**Acceptance Scenarios**:
+**Acceptance Scenarios** (for future implementation):
 
 1. **Given** a guest provides their booking reference, **When** the agent looks it up, **Then** it displays their reservation details.
 
@@ -147,17 +141,24 @@ A visitor prefers to quickly scan key information without engaging in conversati
 
 ### Edge Cases
 
+**MVP Scope (Inquiry)**
+
 - What happens when the agent doesn't understand the user's request? (Graceful fallback with clarifying questions)
-- How does the system handle payment failures? (Clear error messaging, retry options, reservation held temporarily)
-- What if availability changes during a conversation? (Real-time checks before finalizing)
-- How are concurrent booking attempts for the same dates handled? (First-completed-payment wins, others notified)
-- What happens if the user abandons mid-booking? (Session recovery, follow-up option)
+- What if availability changes during a conversation? (Real-time availability checks on each query)
 - How does the agent handle requests in languages other than English? (Multilingual support for at least English and Spanish)
-- What happens if the user enters an incorrect verification code? (Allow up to 3 attempts, then offer to resend code)
-- What happens if the verification code expires? (Codes expire after 10 minutes; agent offers to send a new code)
-- What if the user's email is already associated with a previous booking? (Recognize returning guest, pre-fill known details)
-- What happens if email delivery fails? (Agent detects delay, offers to resend or use alternative email)
-- What if someone attempts to access another guest's booking data via prompt injection? (Tool-layer enforcement: tools only return data for session-bound guest_id; unauthorized access attempts return empty results, not errors that reveal data existence)
+- What happens if the agent takes too long to respond? (Loading indicator, timeout after 30 seconds with retry option)
+- What if the availability data is stale? (Backend refreshes cache periodically; agent always queries current state)
+
+**Deferred Edge Cases (Reservation Feature)**
+
+- ~~How does the system handle payment failures?~~ (DEFERRED)
+- ~~How are concurrent booking attempts for the same dates handled?~~ (DEFERRED)
+- ~~What happens if the user abandons mid-booking?~~ (DEFERRED)
+- ~~What happens if the user enters an incorrect verification code?~~ (DEFERRED)
+- ~~What happens if the verification code expires?~~ (DEFERRED)
+- ~~What if the user's email is already associated with a previous booking?~~ (DEFERRED)
+- ~~What happens if email delivery fails?~~ (DEFERRED)
+- ~~What if someone attempts to access another guest's booking data via prompt injection?~~ (DEFERRED - MVP has no guest-specific data)
 
 ## Requirements *(mandatory)*
 
@@ -171,23 +172,29 @@ A visitor prefers to quickly scan key information without engaging in conversati
 - **FR-004**: Agent MUST maintain conversation context throughout a session
 - **FR-005**: Agent MUST support at least English and Spanish languages
 
-**Guest Verification (Passwordless)**
+**Authentication & Access (Anonymous via Cognito Identity Pool)**
 
-- **FR-006**: Agent MUST NOT request guest email until the user confirms intent to proceed with a reservation (minimize friction)
-- **FR-007**: System MUST verify guest identity using email-based passwordless authentication before accepting a reservation
-- **FR-008**: System MUST send a 6-digit verification code to the guest's email address upon request
-- **FR-009**: System MUST validate the verification code within the conversation flow (no external sign-in page)
-- **FR-010**: Verification codes MUST expire after 10 minutes
-- **FR-011**: System MUST allow up to 3 verification code attempts before requiring a new code
-- **FR-012**: System MUST allow guests to request a new verification code if needed
-- **FR-013**: System MUST recognize returning guests by email and pre-fill known details from previous bookings
+- **FR-006**: System MUST use Cognito Identity Pool to grant anonymous (unauthenticated) access to all visitors
+- **FR-007**: AgentCore runtime MUST use IAM authentication (not Cognito User Pool JWT)
+- **FR-008**: Users MUST NOT be required to sign up or authenticate to interact with the agent
+- **FR-009**: All visitors have access to inquiry features: availability, pricing, property info, area info
 
-**Data Authorization (Session-Bound)**
+**Guest Verification (Passwordless) - DEFERRED**
 
-- **FR-039**: System MUST automatically inject authenticated `guest_id` from Cognito session into tool execution context
-- **FR-040**: Tools accessing guest-specific data (reservations, payments, guest profile) MUST filter results to only return data owned by the session's `guest_id`
-- **FR-041**: Agent MUST NOT be able to override or specify a different `guest_id` than the one bound to the current session
-- **FR-042**: Unauthenticated sessions MUST only have access to public data (availability, pricing, property info, area info)
+> **⚠️ DEFERRED TO FUTURE ITERATION**: Guest verification is required for the reservation feature which is out of scope for MVP.
+
+- **FR-010**: ~~Agent MUST NOT request guest email until the user confirms intent to proceed with a reservation~~ (DEFERRED)
+- **FR-011**: ~~System MUST verify guest identity using email-based passwordless authentication before accepting a reservation~~ (DEFERRED)
+- **FR-012**: ~~System MUST send a 6-digit verification code to the guest's email address upon request~~ (DEFERRED)
+- **FR-013**: ~~Verification codes MUST expire after 10 minutes~~ (DEFERRED)
+
+**Data Authorization (Session-Bound) - DEFERRED**
+
+> **⚠️ DEFERRED TO FUTURE ITERATION**: Session-bound data authorization is required for the reservation feature.
+
+- **FR-039**: ~~System MUST automatically inject authenticated `guest_id` from Cognito session into tool execution context~~ (DEFERRED)
+- **FR-040**: ~~Tools accessing guest-specific data MUST filter results to only return data owned by the session's `guest_id`~~ (DEFERRED)
+- **FR-041**: For MVP, all data accessed is public (availability, pricing, property info, area info) - no guest-specific data
 
 **Type Safety & Data Contracts**
 
@@ -198,89 +205,113 @@ A visitor prefers to quickly scan key information without engaging in conversati
 - **FR-047**: Frontend MUST use TypeScript strict mode (`"strict": true` in tsconfig.json)
 - **FR-048**: Shared data contracts between frontend and backend MUST be generated from Pydantic models (e.g., via pydantic-to-typescript or OpenAPI)
 
-**Booking & Reservations**
+**Availability & Pricing Inquiry (MVP Scope)**
 
 - **FR-014**: System MUST allow users to check availability for specific date ranges
-- **FR-015**: System MUST allow users to make reservations through conversation with the agent
-- **FR-016**: System MUST collect guest information (name, email, phone, number of guests) during booking
-- **FR-017**: System MUST calculate total price including base rate, cleaning fee, and any seasonal adjustments
-- **FR-018**: System MUST prevent double-booking of overlapping dates
-- **FR-019**: System MUST send booking confirmation via email upon successful payment
+- **FR-015**: System MUST calculate and display price estimates including base rate, cleaning fee, and seasonal adjustments
+- **FR-016**: System MUST display availability calendar within conversation
 
-**Payment Processing**
+**Booking & Reservations - DEFERRED**
 
-- **FR-020**: System MUST process payments through conversation flow via HTTPS with payment data handled exclusively by the payment provider (no card details stored or transmitted through our backend)
-- **FR-021**: System MUST support payment processing through a pluggable interface (mocked initially, real provider to be integrated later)
-- **FR-022**: System MUST handle payment failures gracefully with clear messaging
+> **⚠️ DEFERRED TO FUTURE ITERATION**: Reservation creation is out of scope for MVP.
 
-**Booking Management**
+- **FR-017**: ~~System MUST allow users to make reservations through conversation with the agent~~ (DEFERRED)
+- **FR-018**: ~~System MUST collect guest information (name, email, phone, number of guests) during booking~~ (DEFERRED)
+- **FR-019**: ~~System MUST prevent double-booking of overlapping dates~~ (DEFERRED)
+- **FR-020**: ~~System MUST send booking confirmation via email upon successful payment~~ (DEFERRED)
 
-- **FR-023**: System MUST allow guests to retrieve booking details using reference number or email
-- **FR-024**: System MUST allow booking modifications when new dates are available
-- **FR-025**: System MUST process cancellations according to defined cancellation policy
+**Payment Processing - DEFERRED**
+
+> **⚠️ DEFERRED TO FUTURE ITERATION**: Payment processing is out of scope for MVP.
+
+- **FR-021**: ~~System MUST process payments through conversation flow~~ (DEFERRED)
+- **FR-022**: ~~System MUST support payment processing through a pluggable interface~~ (DEFERRED)
+- **FR-023**: ~~System MUST handle payment failures gracefully with clear messaging~~ (DEFERRED)
+
+**Booking Management - DEFERRED**
+
+> **⚠️ DEFERRED TO FUTURE ITERATION**: Booking management requires reservation feature.
+
+- **FR-024**: ~~System MUST allow guests to retrieve booking details using reference number or email~~ (DEFERRED)
+- **FR-025**: ~~System MUST allow booking modifications when new dates are available~~ (DEFERRED)
+- **FR-026**: ~~System MUST process cancellations according to defined cancellation policy~~ (DEFERRED)
 
 **Content & Information**
 
-- **FR-026**: Agent MUST provide accurate apartment details (bedrooms, bathrooms, amenities, capacity)
-- **FR-027**: Agent MUST provide local area information (golf, beaches, restaurants, activities)
-- **FR-028**: Agent MUST display apartment photos on request
-- **FR-029**: System MUST maintain up-to-date pricing and availability data
+- **FR-027**: Agent MUST provide accurate apartment details (bedrooms, bathrooms, amenities, capacity)
+- **FR-028**: Agent MUST provide local area information (golf, beaches, restaurants, activities)
+- **FR-029**: Agent MUST display apartment photos on request
+- **FR-030**: System MUST maintain up-to-date pricing and availability data
 
 **Static Pages & Navigation**
 
-- **FR-030**: System MUST provide a navigation menu visible on all pages
-- **FR-031**: System MUST include a Pricing page displaying seasonal rates, minimum stays, and fees in table format
-- **FR-032**: System MUST include a Location page with an interactive map showing the apartment in Quesada
-- **FR-033**: System MUST include an About/Apartment page with photo gallery, amenities list, and apartment details
-- **FR-034**: System MUST include an Area Guide page with information about nearby attractions, beaches, golf, and dining
-- **FR-035**: System MUST include an FAQ page with common questions and answers about booking, the apartment, and the area
-- **FR-036**: System MUST include a Contact page with owner contact information
-- **FR-037**: Agent MUST remain accessible from all static pages (persistent presence)
-- **FR-038**: Static pages MUST share consistent styling with the main agent interface
+- **FR-031**: System MUST provide a navigation menu visible on all pages
+- **FR-032**: System MUST include a Pricing page displaying seasonal rates, minimum stays, and fees in table format
+- **FR-033**: System MUST include a Location page with an interactive map showing the apartment in Quesada
+- **FR-034**: System MUST include an About/Apartment page with photo gallery, amenities list, and apartment details
+- **FR-035**: System MUST include an Area Guide page with information about nearby attractions, beaches, golf, and dining
+- **FR-036**: System MUST include an FAQ page with common questions and answers about booking, the apartment, and the area
+- **FR-037**: System MUST include a Contact page with owner contact information
+- **FR-038**: Agent MUST remain accessible from all static pages (persistent presence)
+- **FR-100**: Static pages MUST share consistent styling with the main agent interface
 
 **Data Retention & Privacy**
 
-- **FR-049**: Guest personal data (name, email, phone) MUST be retained for 3 years after last booking for legal/tax compliance
-- **FR-050**: Verification codes MUST be automatically deleted after expiration (10 minutes) or successful verification
-- **FR-051**: Conversation logs MUST be retained for 90 days for support/debugging, then anonymized or deleted
-- **FR-052**: System MUST support guest data deletion requests (GDPR right to erasure) with audit trail
+- **FR-101**: Conversation logs MUST be retained for 90 days for support/debugging, then anonymized or deleted
+- **FR-102**: No personal guest data is collected in MVP (anonymous access); data retention requirements deferred to reservation feature
 
 ### Key Entities
 
-- **Reservation**: A booking made by a guest. Contains check-in date, check-out date, guest count, total price, status, and payment status. Related to a Guest and has one or more Payments.
+**MVP Scope (Inquiry Only)**
 
-- **Guest**: A person making a reservation. Contains name, email (verified), phone, preferred language, email verification status, and first verified date. Can have multiple Reservations. Email verification is required before first booking.
-
-- **Availability**: Calendar data showing which dates are available or blocked. Contains date, status (available/booked/blocked), and associated Reservation if booked.
+- **Availability**: Calendar data showing which dates are available or blocked. Contains date, status (available/booked/blocked).
 
 - **Pricing**: Rate configuration. Contains season name, date range, nightly rate, minimum stay requirement, cleaning fee. Multiple Pricing periods cover the full year.
-
-- **Payment**: Financial transaction for a Reservation. Contains amount, status, payment method, transaction reference.
 
 - **Apartment**: The rental property. Contains description, photos, amenities list, address, capacity, bedroom/bathroom configuration.
 
 - **AreaInfo**: Local area knowledge. Contains category (golf, beach, restaurant, activity), name, description, distance/location, and any relevant details.
 
-- **Conversation**: A chat session with a user. Contains messages, timestamp, associated Reservation if booking was made.
+- **Conversation**: A chat session with an anonymous user. Contains messages and timestamp.
+
+**Deferred Entities (Reservation Feature)**
+
+- **Reservation** (DEFERRED): A booking made by a guest. Contains check-in date, check-out date, guest count, total price, status, and payment status.
+
+- **Guest** (DEFERRED): A person making a reservation. Contains name, email (verified), phone, preferred language.
+
+- **Payment** (DEFERRED): Financial transaction for a Reservation. Contains amount, status, payment method, transaction reference.
 
 ## Clarifications
 
 ### Session 2025-12-27
 
+- Q: What authentication model should be used for AgentCore runtime? → A: **IAM authentication via Cognito Identity Pool**. AgentCore runtime uses IAM (not Cognito User Pool JWT). Cognito Identity Pool grants **anonymous (unauthenticated) access** to all visitors. Users are NOT required to sign up or authenticate to interact with the agent. This enables frictionless conversation for all visitors.
+- Q: Is the reservation/booking feature in scope for MVP? → A: **No, out of scope**. Reservation, payment processing, booking management, and guest verification features are deferred to a future iteration. MVP focuses on conversational inquiry: availability checks, pricing information, property details, and area information. No booking commitment required.
 - Q: Should static pages be added for basic info? → A: Yes, add navigation menu with Pricing, Location, and Contact pages
 - Q: Which additional static pages should be included? → A: All options - About/Apartment (photos + amenities), Area Guide, and FAQ
-- Q: How should guest identity be verified? → A: Passwordless flow using AWS Cognito custom challenge. Agent asks for email ONLY when user is ready to reserve (minimize friction). System sends 6-digit code via email; user enters code in conversation. No external sign-in pages.
+- Q: How should guest identity be verified? → A: ~~Passwordless flow using AWS Cognito custom challenge~~ **SUPERSEDED**: MVP uses anonymous access via Cognito Identity Pool. Guest verification deferred to reservation feature.
 - Q: Should tools be implemented as Strands native tools or AgentCore Gateway Lambda targets? → A: Strands native tools using @tool decorator. Tools are defined as Python functions with docstrings and type hints; schemas auto-generate from code. No separate schema files needed (deleted mcp-tools.json). Tool interfaces documented in agent-tools.json. Gateway + Lambda pattern reserved for future external service integrations (payment providers, email services).
-- Q: How do we guarantee the agent retrieves only the current customer's data, not another guest's? → A: Session-bound guest_id injection. Backend automatically injects authenticated `guest_id` into tool context from Cognito session. Tools ONLY return data owned by that guest_id. Agent cannot override or specify a different guest_id. This enforces authorization at the tool layer, preventing prompt injection attacks from accessing other guests' data.
+- Q: How do we guarantee the agent retrieves only the current customer's data, not another guest's? → A: ~~Session-bound guest_id injection~~ **SUPERSEDED**: MVP has no guest-specific data (anonymous access only). All data is public (availability, pricing, property info). Guest-specific data authorization deferred to reservation feature.
 - Q: How should type safety be enforced for data contracts? → A: Pydantic v2 strict mode EVERYWHERE. All backend data models, tool inputs/outputs, API request/response schemas, and DynamoDB item serialization must use Pydantic v2 BaseModel with `model_config = ConfigDict(strict=True)`. Frontend uses TypeScript strict mode. No untyped dictionaries for domain data. Pydantic v1 syntax (`class Config:`) is NOT permitted.
-- Q: Does terraform-aws-agentcore already support passwordless Cognito auth? → A: No. The existing `cognito-user-pool` module in terraform-aws-agentcore only supports basic user pool configuration. A **new `cognito-passwordless` module MUST BE CREATED** and added to `terraform-aws-agentcore/modules/` to support custom auth challenge flows. This module will include: (1) Cognito User Pool with `ALLOW_CUSTOM_AUTH` enabled, (2) Three Lambda triggers (DefineAuthChallenge, CreateAuthChallenge, VerifyAuthChallengeResponse), (3) SES email configuration for sending verification codes. This is a prerequisite infrastructure task before Summerhouse implementation.
-- Q: Where should the Cognito custom auth Lambda functions live? → A: The Lambda functions (define-auth, create-auth, verify-auth) MUST be **bundled inside the `cognito-passwordless` module** in `terraform-aws-agentcore/modules/cognito-passwordless/lambdas/`, NOT in consumer projects like Summerhouse. This makes the module self-contained and reusable. Consumer projects simply reference the module and provide configuration (SES email, code TTL, etc.).
+- Q: Does terraform-aws-agentcore already support passwordless Cognito auth? → A: ~~cognito-passwordless module needed~~ **SUPERSEDED**: MVP uses Cognito Identity Pool for anonymous access, not User Pool with custom auth. Passwordless auth deferred to reservation feature.
+- Q: Where should the Cognito custom auth Lambda functions live? → A: ~~Lambda functions in cognito-passwordless module~~ **SUPERSEDED**: No custom auth Lambda functions needed for MVP. Anonymous access via Identity Pool.
 - Q: How should Terraform backend be configured per environment? → A: Each `infrastructure/environments/` directory shall have a Terraform backend config file to pin deployments to an AWS_PROFILE. For **dev**: `profile = "apro-sandbox"`, `allowed_account_ids = ["195275641848"]`. Prod configuration to be defined separately.
 - Q: How should Terraform commands be executed? → A: All Terraform commands MUST be run via `Taskfile.yaml` in the repo root (adapted from template). **NEVER run terraform commands manually** (e.g., `terraform plan`, `terraform apply`). Use syntax `task tf:<action>:<env>` (e.g., `task tf:plan:dev`, `task tf:apply:prod`). The Taskfile handles environment selection, backend config, and consistent execution.
 - Q: What package manager and deployment strategy for the frontend? → A: Frontend MUST use **Yarn Berry** with `nodeLinker: node-modules` (not PnP). Deployed to **S3 behind CloudFront** via a new `static-website` module in `terraform-aws-agentcore/modules/`. The module MUST use **terraform-aws-modules** (community modules) for all resources (S3, CloudFront, IAM). **Always use latest stable versions** of terraform-aws-modules (e.g., `source = "terraform-aws-modules/cloudfront/aws"`, `version = "6.0.2"`).
 - Q: How should frontend build and deployment be orchestrated? → A: **All operations MUST stay within the Terraform domain**—no external CLI commands (e.g., manual `aws s3 sync`, `yarn build`). Use `terraform_data` resource with `local-exec` provisioner to build the frontend and sync to S3. **CloudFront invalidation is NEVER required**: Next.js build MUST export artifacts with **content-hash filenames** (e.g., `main-abc123.js`), ensuring cache-busting via filename changes rather than invalidation API calls. Configure aggressive CloudFront caching with long TTLs since filenames change when content changes.
 - Q: What structured logging format should be used? → A: Use **Strands and AgentCore default logging formats**—no custom log schema required. AgentCore provides built-in structured logging to CloudWatch with trace IDs, timestamps, and request context. Backend Python code uses standard `logging` module with JSON formatter for consistency. Log levels: DEBUG (development), INFO (production), ERROR (always).
-- Q: What email templates should be used? → A: **Two email types required**: (1) **Verification code email**: Plain text via SES with 6-digit code, sent by cognito-passwordless Lambda trigger. Subject: "Your Summerhouse verification code". (2) **Booking confirmation email**: HTML template with reservation details, dates, price breakdown, property address, and check-in instructions. Use SES templates stored in Terraform config. Both emails MUST include "Summerhouse" branding in sender name.
+- Q: What email templates should be used? → A: **Two email types required**: (1) **Verification code email**: Plain text via SES with 6-digit code, sent by cognito-passwordless Lambda trigger. Subject: "Your Booking verification code". (2) **Booking confirmation email**: HTML template with reservation details, dates, price breakdown, property address, and check-in instructions. Use SES templates stored in Terraform config. Both emails MUST include "Booking" branding in sender name.
+- Q: How should we proceed with infrastructure given the module dependencies? → A: **Inline modules locally**. Implement cognito-passwordless and static-website directly in Booking's `infrastructure/modules/` directory (not in terraform-aws-agentcore). This unblocks infrastructure immediately. Modules can be extracted to a shared repo later if needed.
+- Q: Which AWS region should infrastructure resources be deployed to? → A: **eu-west-1 (Ireland)**. All resources (DynamoDB, Cognito, backend, CloudFront origin) deploy to eu-west-1 for EU data residency (GDPR compliance for Spanish property). Claude Sonnet is available in this region. State storage also in eu-west-1.
+- Q: What backend deployment strategy should we use for the Strands agent? → A: **AgentCore Runtime** via the existing `terraform-aws-agentcore` module. Module location: `~/code/apro/agentcore-sandbox/terraform-aws-agentcore`. Reference implementation: `~/code/apro/agentcore-sandbox/terraform/workspaces/sandbox`. This is a production-ready custom module.
+- Q: How should the SSL certificate be handled? → A: **Use existing wildcard cert**. Reference existing `*.levy.apro.work` ACM certificate in us-east-1 via data lookup or ARN. CloudFront requires certs in us-east-1 for custom domains. No new cert creation needed.
+- Q: What SES sender email should be used? → A: `noreply@levy.apro.work`. Domain must be verified in SES (eu-west-1). Used for verification codes and booking confirmation emails.
+
+### Session 2025-12-28
+
+- Q: What is the scope of Cognito Identity Pool implementation for MVP? → A: **Hybrid approach** - Deploy both Identity Pool (for anonymous access) and User Pool (stubbed for future authenticated flows). Identity Pool grants unauthenticated credentials to all visitors for AgentCore invocation. User Pool is deployed but unused in MVP, ready for reservation feature.
+- Q: How should AgentCore runtime authenticate incoming requests from the frontend? → A: **SigV4 signing** - Frontend uses AWS SDK (`@aws-sdk/client-cognito-identity` + `@aws-sdk/credential-providers`) to obtain temporary credentials from Identity Pool, then signs HTTP requests to AgentCore using SigV4. AgentCore runtime validates the IAM signature. No JWT tokens involved.
 
 ## Assumptions
 

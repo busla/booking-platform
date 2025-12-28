@@ -1,4 +1,4 @@
-"""FastAPI application for Summerhouse Booking Agent.
+"""FastAPI application for Quesada Apartment Booking Agent.
 
 Provides HTTP endpoints compatible with Vercel AI SDK v6:
 - POST /invoke-stream - Streaming agent invocation (SSE)
@@ -6,19 +6,23 @@ Provides HTTP endpoints compatible with Vercel AI SDK v6:
 """
 
 import json
+import logging
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import FastAPI, Request
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from src.agent import get_agent, reset_agent
 
 app = FastAPI(
-    title="Summerhouse Booking Agent",
+    title="Quesada Apartment Booking Agent",
     description="Agent-first vacation rental booking assistant",
     version="0.1.0",
 )
@@ -39,7 +43,7 @@ async def health_check() -> dict[str, Any]:
     return {
         "status": "Healthy",
         "timestamp": datetime.now(UTC).isoformat(),
-        "agent": "summerhouse-booking",
+        "agent": "booking-agent",
     }
 
 
@@ -60,20 +64,37 @@ async def invoke_stream(request: Request) -> StreamingResponse:
     body = await request.json()
     messages = body.get("messages", [])
 
+    logger.info(f"Received {len(messages)} messages")
+    for i, msg in enumerate(messages):
+        logger.info(f"  Message {i}: role={msg.get('role')}, keys={list(msg.keys())}")
+
     # Extract the last user message as the prompt
+    # AI SDK v6 uses "parts" array, older versions use "content"
     prompt = ""
     for msg in reversed(messages):
         if msg.get("role") == "user":
+            # AI SDK v6 format: parts array
+            parts = msg.get("parts", [])
+            if parts:
+                for part in parts:
+                    if isinstance(part, dict) and part.get("type") == "text":
+                        prompt = part.get("text", "")
+                        break
+                if prompt:
+                    break
+
+            # Fallback: older format with content field
             content = msg.get("content", "")
             if isinstance(content, str):
                 prompt = content
             elif isinstance(content, list):
-                # Handle content blocks
                 for block in content:
                     if isinstance(block, dict) and block.get("type") == "text":
                         prompt = block.get("text", "")
                         break
             break
+
+    logger.info(f"Extracted prompt: {prompt[:100] if prompt else '(empty)'!r}")
 
     if not prompt:
         return JSONResponse(
@@ -178,7 +199,7 @@ async def invoke(request: Request) -> JSONResponse:
         return JSONResponse({
             "message": str(result),
             "timestamp": datetime.now(UTC).isoformat(),
-            "agent": "summerhouse-booking",
+            "agent": "booking-agent",
         })
     except Exception as e:
         return JSONResponse(
@@ -197,10 +218,27 @@ async def reset() -> JSONResponse:
     })
 
 
-def run_server(host: str = "0.0.0.0", port: int = 8080) -> None:
-    """Run the FastAPI server."""
+def run_server(host: str = "0.0.0.0", port: int = 8080, reload: bool = True) -> None:
+    """Run the FastAPI server.
+
+    Args:
+        host: Host to bind to (default: 0.0.0.0)
+        port: Port to listen on (default: 8080)
+        reload: Enable hot reload for development (default: True)
+    """
     import uvicorn
-    uvicorn.run(app, host=host, port=port)
+
+    if reload:
+        # Use string reference for reload mode (uvicorn requirement)
+        uvicorn.run(
+            "src.api_app:app",
+            host=host,
+            port=port,
+            reload=True,
+            reload_dirs=["src"],
+        )
+    else:
+        uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":

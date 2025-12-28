@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { Navigation } from '@/components/layout/Navigation'
+import { ChatWidget } from '@/components/layout/ChatWidget'
 
 export const metadata: Metadata = {
-  title: 'Summerhouse - Vacation Rental in Quesada',
+  title: 'Quesada Apartment - Vacation Rental in Costa Blanca',
   description:
     'Book your stay at our beautiful apartment in Quesada, Alicante. Chat with our AI assistant to check availability, get pricing, and complete your booking.',
   keywords: [
@@ -14,9 +16,9 @@ export const metadata: Metadata = {
     'holiday apartment',
     'beach house',
   ],
-  authors: [{ name: 'Summerhouse' }],
+  authors: [{ name: 'Quesada Apartment' }],
   openGraph: {
-    title: 'Summerhouse - Vacation Rental in Quesada',
+    title: 'Quesada Apartment - Vacation Rental in Costa Blanca',
     description:
       'Book your stay at our beautiful apartment in Quesada, Alicante. Chat with our AI assistant.',
     type: 'website',
@@ -40,7 +42,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <div className="app-container">{children}</div>
+        <Navigation />
+        <main className="app-container">{children}</main>
+        <ChatWidget />
       </body>
     </html>
   )

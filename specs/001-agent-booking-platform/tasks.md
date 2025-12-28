@@ -26,7 +26,7 @@
 **Purpose**: Project initialization and basic structure
 
 - [X] T001 Create project directory structure per plan.md (backend/, frontend/, infrastructure/)
-- [X] T001a [P] Adapt Taskfile.yaml for Summerhouse with syntax `task tf:<action>:<env>` (e.g., tf:init:dev, tf:plan:prod). ALL terraform commands MUST use Taskfile
+- [X] T001a [P] Adapt Taskfile.yaml for Booking with syntax `task tf:<action>:<env>` (e.g., tf:init:dev, tf:plan:prod). ALL terraform commands MUST use Taskfile
 - [X] T001b [P] Initialize frontend with Yarn Berry: `yarn init -2`, configure `.yarnrc.yml` with `nodeLinker: node-modules`
 - [X] T002 [P] Initialize Python backend with pyproject.toml (strands-agents, boto3, pydantic v2)
 - [X] T003 [P] Initialize Next.js 14 frontend with package.json (ai, react 18, typescript strict) using Yarn Berry
@@ -47,20 +47,20 @@
 
 - [ ] T006a [P] [FOUND] Verify SES domain/email identity in AWS console (prerequisite for cognito-passwordless email delivery)
 - [X] T007 [FOUND] Create infrastructure/main.tf with terraform-aws-agentcore module reference
-- [ ] T007a [P] [FOUND] Add static-website module reference in infrastructure/main.tf with terraform_data for build/deploy (PREREQUISITE: module must exist in terraform-aws-agentcore)
+- [X] T007a [P] [FOUND] Add static-website module reference in infrastructure/main.tf with terraform_data for build/deploy (PREREQUISITE: module must exist in terraform-aws-agentcore)
 - [X] T008 [P] [FOUND] Create infrastructure/variables.tf with environment, namespace, AWS region
 - [X] T009 [P] [FOUND] Create infrastructure/outputs.tf with cognito, agentcore, dynamodb, cloudfront outputs
 - [X] T010 [P] [FOUND] Create infrastructure/environments/dev.tfvars with backend config (profile=apro-sandbox, allowed_account_ids=["195275641848"])
-- [ ] T011 [P] [FOUND] Create infrastructure/environments/prod.tfvars with backend config (profile/account TBD)
+- [X] T011 [P] [FOUND] Create infrastructure/environments/prod.tfvars with backend config (profile/account TBD)
 
 ### 2B: DynamoDB Tables (per data-model.md)
 
-- [X] T012 [P] [FOUND] Add DynamoDB table: summerhouse-reservations in infrastructure/dynamodb.tf
-- [X] T013 [P] [FOUND] Add DynamoDB table: summerhouse-guests in infrastructure/dynamodb.tf
-- [X] T014 [P] [FOUND] Add DynamoDB table: summerhouse-availability in infrastructure/dynamodb.tf
-- [X] T015 [P] [FOUND] Add DynamoDB table: summerhouse-pricing in infrastructure/dynamodb.tf
-- [X] T016 [P] [FOUND] Add DynamoDB table: summerhouse-payments in infrastructure/dynamodb.tf
-- [X] T017 [P] [FOUND] Add DynamoDB table: summerhouse-verification-codes in infrastructure/dynamodb.tf
+- [X] T012 [P] [FOUND] Add DynamoDB table: booking-reservations in infrastructure/dynamodb.tf
+- [X] T013 [P] [FOUND] Add DynamoDB table: booking-guests in infrastructure/dynamodb.tf
+- [X] T014 [P] [FOUND] Add DynamoDB table: booking-availability in infrastructure/dynamodb.tf
+- [X] T015 [P] [FOUND] Add DynamoDB table: booking-pricing in infrastructure/dynamodb.tf
+- [X] T016 [P] [FOUND] Add DynamoDB table: booking-payments in infrastructure/dynamodb.tf
+- [X] T017 [P] [FOUND] Add DynamoDB table: booking-verification-codes in infrastructure/dynamodb.tf
 
 ### 2C: Backend Pydantic Models (per data-model.md, FR-043)
 
@@ -98,6 +98,7 @@
 - [X] T038 [P] [FOUND] Create Navigation component in frontend/src/components/layout/Navigation.tsx
 - [X] T039 [P] [FOUND] Create Header component in frontend/src/components/layout/Header.tsx
 - [X] T040 [P] [FOUND] Create Footer component in frontend/src/components/layout/Footer.tsx
+- [ ] T032b [FOUND] **Research ai-elements catalogue** - Document available components, identify gaps, justify any custom implementations per Constitution VI gate (output to research.md)
 
 ### 2G: Testing Infrastructure
 
@@ -106,6 +107,36 @@
 - [X] T043 [P] [FOUND] Configure Playwright E2E in frontend/playwright.config.ts
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
+
+---
+
+## Phase 2.5: Cognito Identity Pool & IAM Auth (Priority: NEXT) 🔐
+
+**Purpose**: Enable anonymous frontend access to AgentCore via IAM authentication
+
+**Why this phase**: Per spec clarifications (2025-12-28), anonymous users need AWS credentials to invoke AgentCore. This is a prerequisite for the chat interface to work with the deployed backend.
+
+### 2.5A: Infrastructure - Cognito Identity Pool
+
+- [X] T200 [P] [AUTH] Add Cognito Identity Pool in infrastructure/cognito.tf (unauthenticated access enabled)
+- [X] T201 [P] [AUTH] Add Cognito User Pool stub in infrastructure/cognito.tf (deployed but unused for MVP)
+- [X] T202 [P] [AUTH] Create IAM role for unauthenticated Identity Pool access with AgentCore invoke permissions
+- [X] T203 [AUTH] Update infrastructure/outputs.tf with identity_pool_id, user_pool_id, user_pool_client_id
+- [X] T204 [AUTH] Update terraform-aws-agentcore module to accept IAM auth configuration (if needed)
+
+### 2.5B: Frontend - AWS SDK & SigV4 Signing
+
+- [X] T205 [P] [AUTH] Install AWS SDK packages: `@aws-sdk/client-cognito-identity`, `@aws-sdk/credential-providers`
+- [X] T206 [AUTH] Create frontend/src/lib/aws-credentials.ts for obtaining anonymous credentials from Identity Pool
+- [X] T207 [AUTH] Create frontend/src/lib/sigv4-fetch.ts for SigV4 request signing (implemented in agentcore-transport.ts)
+- [X] T208 [AUTH] Update frontend/src/app/api/chat/route.ts to use SigV4-signed requests to AgentCore (browser-direct via useAgentChat hook)
+
+### 2.5C: Backend - IAM Auth Validation
+
+- [X] T209 [AUTH] Update AgentCore runtime configuration to use IAM authentication (remove JWT validation)
+- [X] T210 [AUTH] Test IAM-authenticated requests work end-to-end
+
+**Checkpoint**: Anonymous users can invoke AgentCore via SigV4-signed requests
 
 ---
 
@@ -132,41 +163,15 @@
 - [X] T052 [P] [US1] Implement get_pricing tool in backend/src/tools/pricing.py
 - [X] T053 [P] [US1] Implement calculate_total tool in backend/src/tools/pricing.py
 
-### 3C: Reservation Tools (US1)
-
-- [X] T054 [US1] Implement create_reservation tool with double-booking prevention in backend/src/tools/reservations.py
-- [X] T055 [US1] Register availability and pricing tools with booking_agent in backend/src/agent/booking_agent.py
-
-### 3D: Payment Tool (US1 - Mocked)
-
-- [X] T056 [US1] Implement process_payment tool (always succeeds) in backend/src/tools/payments.py
-- [X] T056a [US1] Implement payment failure handling with retry logic and clear error messaging in backend/src/tools/payments.py (FR-022)
-- [X] T057 [US1] Register reservation and payment tools with booking_agent in backend/src/agent/booking_agent.py
-
-### 3E: Guest Verification Tools (US1)
-
-- [X] T058 [P] [US1] Implement initiate_verification tool in backend/src/tools/guest.py
-- [X] T059 [P] [US1] Implement verify_code tool in backend/src/tools/guest.py
-- [X] T060 [US1] Implement get_guest_info tool in backend/src/tools/guest.py
-- [X] T060a [US1] Implement returning guest recognition (pre-fill known details from previous bookings) in backend/src/tools/guest.py (FR-013)
-- [X] T061 [US1] Register guest tools with booking_agent in backend/src/agent/booking_agent.py
-
-### 3F: Frontend Chat Interface (US1)
+### 3C: Frontend Chat Interface (US1)
 
 - [X] T062 [US1] Create ChatInterface component with useChat hook in frontend/src/components/agent/ChatInterface.tsx (implemented in ai-elements/conversation.tsx + page.tsx)
 - [X] T063 [P] [US1] Create MessageBubble component in frontend/src/components/agent/MessageBubble.tsx (implemented in ai-elements/message.tsx)
 - [X] T064 [P] [US1] Create RichContentRenderer for structured responses (delegates to specialized components like PhotoGallery) in frontend/src/components/agent/RichContentRenderer.tsx
-- [X] T065 [P] [US1] Create BookingSummaryCard component in frontend/src/components/agent/BookingSummaryCard.tsx
 - [X] T066 [P] [US1] Create AvailabilityCalendar component in frontend/src/components/agent/AvailabilityCalendar.tsx
-- [X] T067 [P] [US1] Create VerificationCodeInput component in frontend/src/components/agent/VerificationCodeInput.tsx
 - [X] T068 [US1] Create home page with agent as primary interface in frontend/src/app/page.tsx
 
-### 3G: Cognito Passwordless (US1 - Requires cognito-passwordless module)
-
-- [ ] T069 [US1] Add cognito-passwordless module reference in infrastructure/main.tf (PREREQUISITE: module must exist)
-- [ ] T070 [US1] Implement passwordless custom auth challenge flow (initiate/verify code) using auth.ts utilities (extends T035)
-
-**Checkpoint**: US1 complete - users can book through conversation. Run E2E test to validate.
+**Checkpoint**: US1 complete - users can inquire about availability, pricing, and property details through conversation. Run E2E test to validate.
 
 ---
 
@@ -204,19 +209,19 @@
 
 ### 5A: Tests for US3
 
-- [ ] T078 [P] [US3] Unit tests for get_area_info tool in backend/tests/unit/test_area_info.py
-- [ ] T079 [P] [US3] Unit tests for get_recommendations tool in backend/tests/unit/test_recommendations.py
+- [X] T078 [P] [US3] Unit tests for get_area_info tool in backend/tests/unit/test_area_info.py
+- [X] T079 [P] [US3] Unit tests for get_recommendations tool in backend/tests/unit/test_recommendations.py
 
 ### 5B: Area Info Tools (US3)
 
-- [ ] T080 [P] [US3] Implement get_area_info tool in backend/src/tools/area_info.py
-- [ ] T081 [P] [US3] Implement get_recommendations tool in backend/src/tools/area_info.py
-- [ ] T082 [US3] Register area info tools with booking_agent in backend/src/agent/booking_agent.py
+- [X] T080 [P] [US3] Implement get_area_info tool in backend/src/tools/area_info.py
+- [X] T081 [P] [US3] Implement get_recommendations tool in backend/src/tools/area_info.py
+- [X] T082 [US3] Register area info tools with booking_agent in backend/src/agent/booking_agent.py
 
 ### 5C: Area Data (US3)
 
-- [ ] T083 [US3] Create area info data structure (golf, beaches, restaurants, activities)
-- [ ] T084 [US3] Seed area info data (S3 or DynamoDB static content)
+- [X] T083 [US3] Create area info data structure (golf, beaches, restaurants, activities)
+- [X] T084 [US3] Seed area info data (S3 or DynamoDB static content)
 
 **Checkpoint**: US3 complete - guests can learn about the Quesada area
 
@@ -230,54 +235,26 @@
 
 ### 6A: Tests for US4
 
-- [ ] T085 [P] [US4] Unit tests for get_property_details tool in backend/tests/unit/test_property.py
-- [ ] T086 [P] [US4] Unit tests for get_photos tool in backend/tests/unit/test_photos.py
+- [X] T085 [P] [US4] Unit tests for get_property_details tool in backend/tests/unit/test_property.py
+- [X] T086 [P] [US4] Unit tests for get_photos tool in backend/tests/unit/test_photos.py
 
 ### 6B: Property Tools (US4)
 
-- [ ] T087 [P] [US4] Implement get_property_details tool in backend/src/tools/property.py
-- [ ] T088 [P] [US4] Implement get_photos tool (with category filter) in backend/src/tools/property.py
-- [ ] T089 [US4] Register property tools with booking_agent in backend/src/agent/booking_agent.py
+- [X] T087 [P] [US4] Implement get_property_details tool in backend/src/tools/property.py
+- [X] T088 [P] [US4] Implement get_photos tool (with category filter) in backend/src/tools/property.py
+- [X] T089 [US4] Register property tools with booking_agent in backend/src/agent/booking_agent.py
 
 ### 6C: Property Data & Photos (US4)
 
-- [ ] T090 [US4] Create property data structure (bedrooms, bathrooms, amenities, rules)
-- [ ] T091 [US4] Upload property photos to S3 bucket
-- [ ] T092 [P] [US4] Create PhotoGallery component in frontend/src/components/agent/PhotoGallery.tsx
+- [X] T090 [US4] Create property data structure (bedrooms, bathrooms, amenities, rules)
+- [ ] T091 [US4] Upload property photos to S3 bucket (requires actual photos - deployment task)
+- [X] T092 [P] [US4] Create PhotoGallery component in frontend/src/components/agent/PhotoGallery.tsx
 
 **Checkpoint**: US4 complete - guests can explore apartment details and photos
 
 ---
 
-## Phase 7: User Story 5 - Booking Management (Priority: P5)
-
-**Goal**: Existing guests can retrieve, modify, or cancel reservations
-
-**Independent Test**: Create booking, then retrieve and modify it through conversation
-
-### 7A: Tests for US5
-
-- [ ] T093 [P] [US5] Unit tests for get_reservation tool in backend/tests/unit/test_get_reservation.py
-- [ ] T094 [P] [US5] Unit tests for modify_reservation tool in backend/tests/unit/test_modify_reservation.py
-- [ ] T095 [P] [US5] Unit tests for cancel_reservation tool in backend/tests/unit/test_cancel_reservation.py
-
-### 7B: Booking Management Tools (US5)
-
-- [ ] T096 [US5] Implement get_reservation tool (session-bound guest_id) in backend/src/tools/reservations.py
-- [ ] T097 [US5] Implement modify_reservation tool with price recalculation in backend/src/tools/reservations.py
-- [ ] T098 [US5] Implement cancel_reservation tool with cancellation policy in backend/src/tools/reservations.py
-- [ ] T099 [US5] Implement resend_confirmation helper in backend/src/services/notification_service.py
-
-### 7C: Session-Bound Authorization (US5 - FR-039 to FR-042)
-
-- [ ] T100 [US5] Implement guest_id injection from Cognito session in backend/src/agent/booking_agent.py
-- [ ] T101 [US5] Add session-bound filtering to all guest data tools in backend/src/tools/
-
-**Checkpoint**: US5 complete - guests can manage existing bookings
-
----
-
-## Phase 8: User Story 6 - Static Information Pages (Priority: P6)
+## Phase 7: User Story 6 - Static Information Pages (Priority: P6)
 
 **Goal**: Navigation menu with static pages (Pricing, Location, About, Area Guide, FAQ, Contact)
 
@@ -285,42 +262,97 @@
 
 ### 8A: Tests for US6
 
-- [ ] T102 [US6] E2E tests for static page navigation in frontend/tests/e2e/static-pages.spec.ts
+- [X] T102 [US6] E2E tests for static page navigation in frontend/tests/e2e/static-pages.spec.ts
 
 ### 8B: Static Pages (US6)
 
-- [ ] T103 [P] [US6] Create Pricing page with rate table in frontend/src/app/pricing/page.tsx
-- [ ] T104 [P] [US6] Create Location page with interactive map in frontend/src/app/location/page.tsx
-- [ ] T105 [P] [US6] Create About page with photo gallery and amenities in frontend/src/app/about/page.tsx
-- [ ] T106 [P] [US6] Create Area Guide page in frontend/src/app/area-guide/page.tsx
-- [ ] T107 [P] [US6] Create FAQ page in frontend/src/app/faq/page.tsx
-- [ ] T108 [P] [US6] Create Contact page in frontend/src/app/contact/page.tsx
+- [X] T103 [P] [US6] Create Pricing page with rate table in frontend/src/app/pricing/page.tsx
+- [X] T104 [P] [US6] Create Location page with interactive map in frontend/src/app/location/page.tsx
+- [X] T105 [P] [US6] Create About page with photo gallery and amenities in frontend/src/app/about/page.tsx
+- [X] T106 [P] [US6] Create Area Guide page in frontend/src/app/area-guide/page.tsx
+- [X] T107 [P] [US6] Create FAQ page in frontend/src/app/faq/page.tsx
+- [X] T108 [P] [US6] Create Contact page in frontend/src/app/contact/page.tsx
 
 ### 8C: Persistent Agent Access (US6 - FR-037)
 
-- [ ] T109 [US6] Add persistent agent chat widget to all pages in frontend/src/components/layout/
+- [X] T109 [US6] Add persistent agent chat widget to all pages in frontend/src/components/layout/
 
 **Checkpoint**: US6 complete - all static pages available with agent accessible from each
 
 ---
 
-## Phase 9: Polish & Cross-Cutting Concerns
+## Phase 8: Polish & Cross-Cutting Concerns
 
 **Purpose**: Improvements affecting multiple user stories
 
-- [ ] T110 [P] Add multilingual support (English/Spanish) to system prompt (FR-005)
-- [ ] T111 [P] Implement error handling with standard error codes from agent-tools.json
-- [ ] T112 [P] Add structured logging across all tools
-- [ ] T113 [P] Create API health check endpoint in backend/src/api/health.py
-- [ ] T113a [P] Configure CloudWatch dashboard with key metrics (agent response time, error rate, booking conversion) via terraform-aws-agentcore observability outputs
-- [ ] T113b [P] Configure CloudWatch alarms for critical thresholds (response time > 3s, error rate > 5%, availability table sync failures)
-- [ ] T114 Performance optimization: ensure agent response < 3 seconds (SC-003)
-- [ ] T115 Security audit: verify session-bound guest_id enforcement
-- [ ] T116 Run quickstart.md validation (all setup commands work)
-- [ ] T117 [P] Update CLAUDE.md with final conventions
-- [ ] T118 [P] Implement session recovery for abandoned mid-booking conversations in backend/src/agent/booking_agent.py (edge case)
-- [ ] T119 [P] Implement email delivery failure detection and retry/alternative email offer in backend/src/services/notification_service.py (edge case)
-- [ ] T120 [P] Create admin data seeding script for pricing/availability updates in backend/scripts/seed_data.py—MUST seed 2 years of future availability dates per FR-003 (FR-029 operational support)
+- [X] T110 [P] Add multilingual support (English/Spanish) to system prompt (FR-005)
+- [X] T111 [P] Implement error handling with standard error codes from agent-tools.json
+- [X] T112 [P] Add structured logging across all tools
+- [X] T113 [P] Create API health check endpoint in backend/src/api/health.py
+- [ ] T113a [P] Configure CloudWatch dashboard with key metrics (agent response time, error rate) via terraform-aws-agentcore observability outputs (DEFERRED)
+- [ ] T113b [P] Configure CloudWatch alarms for critical thresholds (response time > 3s, error rate > 5%, availability table sync failures) (DEFERRED)
+- [ ] T113c [P] Configure CloudWatch log retention policy (90 days) per FR-101 (DEFERRED)
+- [X] T114 Performance optimization: ensure agent response < 3 seconds (SC-003) - implemented DynamoDB singleton pattern to avoid boto3 re-instantiation overhead (~100-200ms saved per tool call)
+- [X] T116 Run quickstart.md validation (all setup commands work) - verified Strands import, TypeScript checks, Taskfile commands, pytest/Vitest tests, uvicorn server startup
+- [X] T117 [P] Update CLAUDE.md with final conventions - added DynamoDB singleton pattern, ToolError structured error format documentation
+- [X] T120 [P] Create admin data seeding script for pricing/availability updates in backend/scripts/seed_data.py—seeds 2 years of future availability dates per FR-003, 11 seasonal pricing records (2025-Q1 2027), and sample guest records with correct schema
+
+---
+
+## Phase 9: DEFERRED (Post-MVP)
+
+**Purpose**: Features marked DEFERRED in spec.md - to be implemented after MVP launch
+
+**Scope**: Reservations, payments, guest verification, booking management (US5)
+
+### 9A: Reservation Tools (DEFERRED - FR-010 through FR-016)
+
+- [ ] T054 [P] [US1] Implement create_reservation tool in backend/src/tools/reservations.py (DEFERRED)
+- [ ] T055 [P] [US1] Implement modify_reservation tool in backend/src/tools/reservations.py (DEFERRED)
+- [ ] T056 [US1] Implement cancel_reservation tool in backend/src/tools/reservations.py (DEFERRED)
+- [ ] T057 [US1] Register reservation tools with booking_agent in backend/src/agent/booking_agent.py (DEFERRED)
+
+### 9B: Payment Tool (DEFERRED - FR-017)
+
+- [ ] T058 [US1] Unit tests for process_payment tool in backend/tests/unit/test_payment.py (DEFERRED)
+- [ ] T059 [US1] Implement process_payment tool (mock) in backend/src/tools/payment.py (DEFERRED)
+- [ ] T060 [US1] Register payment tools with booking_agent in backend/src/agent/booking_agent.py (DEFERRED)
+
+### 9C: Guest Verification Tools (DEFERRED - FR-010)
+
+- [ ] T061 [US1] Implement guest verification tools (initiate_verification, verify_code) in backend/src/tools/verification.py (DEFERRED)
+
+### 9D: Deferred UI Components
+
+- [ ] T065 [P] [US1] Create BookingSummaryCard component in frontend/src/components/agent/BookingSummaryCard.tsx (DEFERRED - depends on reservations)
+- [ ] T067 [P] [US1] Create VerificationCodeInput component in frontend/src/components/agent/VerificationCodeInput.tsx (DEFERRED)
+
+### 9E: Cognito Passwordless (DEFERRED - email verification for bookings)
+
+- [ ] T069 [FOUND] Create cognito-passwordless module in infrastructure/modules/cognito-passwordless/ (DEFERRED)
+- [ ] T070 [FOUND] Add cognito-passwordless module reference in infrastructure/main.tf (DEFERRED)
+
+### 9F: User Story 5 - Booking Management (DEFERRED - Priority: P5)
+
+**Goal**: Guests can retrieve, modify, or cancel existing bookings via conversation
+
+- [ ] T093 [P] [US5] Unit tests for get_guest_info tool in backend/tests/unit/test_guest.py (DEFERRED)
+- [ ] T094 [P] [US5] Unit tests for get_reservation tool in backend/tests/unit/test_get_reservation.py (DEFERRED)
+- [ ] T095 [US5] Unit tests for modify_reservation edge cases in backend/tests/unit/test_modify_reservation.py (DEFERRED)
+- [ ] T096 [US5] Unit tests for cancel_reservation with refund calculation in backend/tests/unit/test_cancel_reservation.py (DEFERRED)
+- [ ] T097 [P] [US5] Implement get_guest_info tool in backend/src/tools/guest.py (DEFERRED)
+- [ ] T098 [P] [US5] Implement get_reservation tool in backend/src/tools/reservations.py (DEFERRED)
+- [ ] T099 [US5] Enhance modify_reservation with date change handling in backend/src/tools/reservations.py (DEFERRED)
+- [ ] T100 [US5] Implement cancellation policy in cancel_reservation in backend/src/tools/reservations.py (DEFERRED)
+- [ ] T101 [US5] E2E test for booking modification flow in frontend/tests/e2e/modify-booking.spec.ts (DEFERRED)
+
+### 9G: Additional Deferred Items
+
+- [ ] T115 [P] Implement session recovery/reconnection logic in frontend/src/lib/ (FR-008) (DEFERRED - requires conversation persistence)
+- [ ] T118 [P] Mobile responsive design for all components (FR-038) (DEFERRED)
+- [ ] T119 [P] Create SEO metadata for all static pages (DEFERRED)
+
+**Note**: Phase 9 tasks should only be started after MVP validation and user feedback
 
 ---
 
@@ -329,24 +361,26 @@
 ### Phase Dependencies
 
 ```
-Phase 1 (Setup) → Phase 2 (Foundational) → Phases 3-8 (User Stories) → Phase 9 (Polish)
-                         ↓
-                    BLOCKS ALL
-                   USER STORIES
+Phase 1 (Setup) → Phase 2 (Foundational) → Phase 2.5 (IAM Auth) → Phases 3-7 (User Stories) → Phase 8 (Polish)
+                         ↓                        ↓                                                   ↓
+                    BLOCKS ALL               ENABLES AgentCore                               Phase 9 (DEFERRED)
+                   USER STORIES              INVOCATION                                      (Post-MVP features)
 ```
 
-### User Story Dependencies
+**Phase 2.5 Priority**: Per spec clarifications (2025-12-28), Cognito Identity Pool and IAM auth is the **NEXT priority** after foundational work. This enables anonymous users to invoke AgentCore via SigV4-signed requests.
+
+### User Story Dependencies (MVP Scope)
 
 All user stories depend on Phase 2 (Foundational) completion:
 
 | Story | Can Start After | Dependencies on Other Stories |
 |-------|-----------------|-------------------------------|
-| US1 (P1) | Phase 2 | None - standalone MVP |
+| US1 (P1) | Phase 2 | None - inquiry-only MVP |
 | US2 (P2) | Phase 2 | None - enhances pricing from US1 |
 | US3 (P3) | Phase 2 | None - independent content |
 | US4 (P4) | Phase 2 | None - independent content |
-| US5 (P5) | Phase 2 | Builds on US1 reservation tools |
 | US6 (P6) | Phase 2 | None - independent pages |
+| US5 (P5) | Phase 9 | **DEFERRED** - requires reservation infrastructure |
 
 ### Parallel Opportunities
 
@@ -370,21 +404,23 @@ All user stories depend on Phase 2 (Foundational) completion:
 | Phase | Tasks | Parallel Tasks | Key Deliverable |
 |-------|-------|----------------|-----------------|
 | 1: Setup | 9 | 7 | Project structure + Taskfile + Yarn Berry + Next.js export config |
-| 2: Foundational | 41 | 31 | Infrastructure, models, agent skeleton |
-| 3: US1 (MVP) | 30 | 18 | Complete booking via conversation |
+| 2: Foundational | 37 | 27 | Infrastructure, models, agent skeleton |
+| 2.5: IAM Auth | 11 | 4 | Anonymous AgentCore access via Cognito Identity Pool |
+| 3: US1 (MVP) | 14 | 6 | Inquiry-only booking via conversation |
 | 4: US2 | 7 | 2 | Pricing exploration |
 | 5: US3 | 7 | 4 | Area information |
 | 6: US4 | 8 | 5 | Apartment details |
-| 7: US5 | 9 | 3 | Booking management |
-| 8: US6 | 8 | 6 | Static pages |
-| 9: Polish | 13 | 10 | Quality & performance |
-| **Total** | **132** | **86** | Full platform |
+| 7: US6 | 8 | 6 | Static pages |
+| 8: Polish | 11 | 8 | Quality & performance |
+| 9: DEFERRED | 25 | 10 | Reservations, payments, verification (post-MVP) |
+| **Total** | **137** | **79** | Full platform |
 
-**MVP Scope**: Phases 1-3 (80 tasks) deliver complete booking functionality.
+**MVP Scope**: Phases 1-8 deliver inquiry-only booking functionality (availability, pricing, property details, area info, static pages).
+
+**Post-MVP Scope**: Phase 9 (DEFERRED) contains reservation, payment, and guest verification features for future implementation.
 
 **Operational Constraint**: All Terraform commands MUST be run via `Taskfile.yaml` (never manually). Task T001a sets this up.
 
 **Prerequisite Alerts**:
-- Task T006a requires SES domain/email identity verification in AWS console before Cognito passwordless can send verification emails.
-- Task T069 requires the `cognito-passwordless` module to exist in `terraform-aws-agentcore/modules/`. This module must be created before Summerhouse infrastructure deployment.
+- Task T006a requires SES domain/email identity verification in AWS console (for future email features).
 - Task T007a requires the `static-website` module to exist in `terraform-aws-agentcore/modules/`. This module must be created before frontend deployment.

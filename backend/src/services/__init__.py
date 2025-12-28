@@ -1,4 +1,4 @@
-"""Backend services for Summerhouse."""
+"""Backend services for Quesada Apartment Booking."""
 
 from .availability import AvailabilityService
 from .booking import BookingService

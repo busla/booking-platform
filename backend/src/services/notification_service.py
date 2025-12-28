@@ -55,8 +55,8 @@ class NotificationService:
 
     def __init__(
         self,
-        from_email: str = "noreply@summerhouse.example.com",
-        from_name: str = "Summerhouse Booking",
+        from_email: str = "noreply@quesada-apartment.com",
+        from_name: str = "Quesada Apartment",
     ) -> None:
         """Initialize notification service.
 
@@ -115,7 +115,7 @@ class NotificationService:
         """
         message = EmailMessage(
             to=email,
-            subject="Your Summerhouse Verification Code",
+            subject="Your Quesada Apartment Verification Code",
             body_text=f"""Hello,
 
 Your verification code is: {code}
@@ -125,12 +125,12 @@ This code will expire in {expires_minutes} minutes.
 If you did not request this code, please ignore this email.
 
 Best regards,
-The Summerhouse Team
+The Quesada Apartment Team
 """,
             body_html=f"""
 <html>
 <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-    <h2 style="color: #2c5530;">Summerhouse</h2>
+    <h2 style="color: #2c5530;">Quesada Apartment</h2>
     <p>Hello,</p>
     <p>Your verification code is:</p>
     <div style="background: #f5f5f5; padding: 20px; text-align: center; font-size: 32px; letter-spacing: 5px; font-weight: bold; margin: 20px 0;">
@@ -138,7 +138,7 @@ The Summerhouse Team
     </div>
     <p>This code will expire in {expires_minutes} minutes.</p>
     <p style="color: #666; font-size: 12px;">If you did not request this code, please ignore this email.</p>
-    <p>Best regards,<br>The Summerhouse Team</p>
+    <p>Best regards,<br>The Quesada Apartment Team</p>
 </body>
 </html>
 """,
@@ -177,7 +177,7 @@ The Summerhouse Team
             subject=f"Booking Confirmed - {reservation_id}",
             body_text=f"""Dear {guest_name or 'Guest'},
 
-Your booking at Summerhouse has been confirmed!
+Your booking at Quesada Apartment has been confirmed!
 
 Reservation Details:
 - Confirmation Number: {reservation_id}
@@ -199,14 +199,14 @@ If you have any questions, please reply to this email.
 We look forward to hosting you!
 
 Best regards,
-The Summerhouse Team
+The Quesada Apartment Team
 """,
             body_html=f"""
 <html>
 <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
     <h2 style="color: #2c5530;">Booking Confirmed!</h2>
     <p>Dear {guest_name or 'Guest'},</p>
-    <p>Your booking at Summerhouse has been confirmed!</p>
+    <p>Your booking at Quesada Apartment has been confirmed!</p>
 
     <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
         <h3 style="margin-top: 0;">Reservation Details</h3>
@@ -232,7 +232,7 @@ The Summerhouse Team
     <p>If you have any questions, please reply to this email.</p>
     <p>We look forward to hosting you!</p>
 
-    <p>Best regards,<br>The Summerhouse Team</p>
+    <p>Best regards,<br>The Quesada Apartment Team</p>
 </body>
 </html>
 """,
@@ -284,7 +284,7 @@ Payment Details:
 Thank you for your booking!
 
 Best regards,
-The Summerhouse Team
+The Quesada Apartment Team
 """,
             notification_type=NotificationType.PAYMENT_RECEIVED,
             metadata={
@@ -330,7 +330,7 @@ Your booking {reservation_id} for check-in on {check_in} has been cancelled.{ref
 If you have any questions, please contact us.
 
 Best regards,
-The Summerhouse Team
+The Quesada Apartment Team
 """,
             notification_type=NotificationType.BOOKING_CANCELLED,
             metadata={

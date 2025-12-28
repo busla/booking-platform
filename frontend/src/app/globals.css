@@ -1,5 +1,5 @@
 /**
- * Summerhouse Global Styles
+ * Quesada Apartment Global Styles
  *
  * Base styles for the vacation rental booking application.
  * Uses CSS custom properties for consistent theming.
@@ -95,17 +95,45 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* App Container */
-.app-container {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
 }
 
-.app-container > main {
+/* App Container */
+.app-container {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Chat Page - fills remaining viewport after navigation */
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0; /* Critical for nested flex to work */
+  overflow: hidden;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chat-container .conversation {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.chat-container .conversation-content {
+  flex: 1;
+  overflow-y: auto;
 }
 
 /* Typography */
@@ -760,4 +788,28 @@ a:focus:not(:focus-visible) {
 
 .prose-sm {
   font-size: 0.9375rem;
+}
+
+/* === Chat Widget Styles === */
+
+.chat-widget-conversation {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-widget-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.chat-widget-messages .conversation-empty-state {
+  min-height: auto;
+  padding: 2rem 1rem;
+}
+
+.chat-widget-messages .message-bubble {
+  max-width: 85%;
 }

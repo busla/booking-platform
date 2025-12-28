@@ -2,22 +2,23 @@
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                           SYNC IMPACT REPORT                                  ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║ Version Change: 1.0.0 → 1.1.0 (Technology Stack principles added)            ║
+║ Version Change: 1.1.0 → 1.2.0 (UI Component Research principle added)        ║
 ║                                                                              ║
 ║ Modified Principles:                                                         ║
-║   - None (existing principles unchanged)                                     ║
+║   - VI. Technology Stack: Added "UI Component Development" subsection        ║
 ║                                                                              ║
 ║ Added Sections:                                                              ║
-║   - VI. Technology Stack (NON-NEGOTIABLE)                                    ║
-║     - Frontend Agent Development                                             ║
-║     - Backend Agent Development                                              ║
-║     - Infrastructure                                                         ║
+║   - VI. Technology Stack > UI Component Development                          ║
+║     - MUST research ai-elements catalogue before custom implementation       ║
+║     - MUST document catalogue research findings                              ║
+║     - MUST justify custom implementations when catalogue lacks component     ║
 ║                                                                              ║
 ║ Removed Sections:                                                            ║
 ║   - None                                                                     ║
 ║                                                                              ║
 ║ Templates Status:                                                            ║
-║   - .specify/templates/plan-template.md        ✅ Compatible (no changes)    ║
+║   - .specify/templates/plan-template.md        ✅ Compatible (Constitution   ║
+║     Check section will enforce new principle during planning)                ║
 ║   - .specify/templates/spec-template.md        ✅ Compatible (no changes)    ║
 ║   - .specify/templates/tasks-template.md       ✅ Compatible (no changes)    ║
 ║                                                                              ║
@@ -26,7 +27,7 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 -->
 
-# Summerhouse Constitution
+# Booking Constitution
 
 ## Core Principles
 
@@ -109,6 +110,16 @@ maintainability across the project:
 - MUST NOT use alternative AI SDK libraries without documented justification and
   amendment to this constitution
 
+**UI Component Development**
+
+- MUST research the ai-elements catalogue before planning any UI component implementation
+- MUST document which ai-elements components were considered and their applicability
+- MUST use existing ai-elements components when they meet requirements (even partially)
+- MUST justify with documented rationale any decision to implement custom components
+  when ai-elements lacks suitable options
+- SHOULD extend or compose ai-elements components rather than building from scratch
+- MUST NOT implement custom UI components that duplicate ai-elements functionality
+
 **Backend Agent Development**
 
 - MUST use Strands agent framework for all agent backend development
@@ -125,7 +136,9 @@ maintainability across the project:
 
 **Rationale**: A consistent technology stack reduces cognitive load, enables knowledge
 sharing, and prevents fragmentation. These specific choices align with the agent-first
-architecture and AWS deployment target of the Summerhouse platform.
+architecture and AWS deployment target of the Booking platform. Researching
+existing component libraries before implementation prevents duplication of effort and
+ensures consistent UI patterns across the application.
 
 ## Quality Standards
 
@@ -150,7 +163,7 @@ Standard workflow enforcing constitution compliance:
 
 ## Governance
 
-This constitution is the supreme authority for development practices in Summerhouse:
+This constitution is the supreme authority for development practices in Booking:
 
 - **Supremacy**: Constitution principles override all other guidelines, preferences,
   or conventions when in conflict
@@ -163,4 +176,4 @@ This constitution is the supreme authority for development practices in Summerho
 - **Exceptions**: Any principle violation MUST be documented with justification in the
   Complexity Tracking section of the relevant plan.md
 
-**Version**: 1.1.0 | **Ratified**: 2025-12-27 | **Last Amended**: 2025-12-27
+**Version**: 1.2.0 | **Ratified**: 2025-12-27 | **Last Amended**: 2025-12-28

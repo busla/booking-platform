@@ -4,26 +4,29 @@ These tools allow the booking agent to check if dates are available
 and retrieve calendar views of availability.
 """
 
+import logging
 from datetime import date, datetime, timedelta
 from typing import Any
 
 from strands import tool
 
+logger = logging.getLogger(__name__)
+
 from src.models.availability import AvailabilityResponse
 from src.models.enums import AvailabilityStatus
 from src.services.availability import AvailabilityService
-from src.services.dynamodb import DynamoDBService
+from src.services.dynamodb import get_dynamodb_service
 from src.services.pricing import PricingService
 
 
-def _get_db() -> DynamoDBService:
-    """Get DynamoDB service instance."""
-    return DynamoDBService()
+def _get_db():
+    """Get shared DynamoDB service instance (singleton for performance)."""
+    return get_dynamodb_service()
 
 
 def _get_availability_service() -> AvailabilityService:
-    """Get AvailabilityService instance."""
-    db = DynamoDBService()
+    """Get AvailabilityService instance (uses shared DB connection)."""
+    db = get_dynamodb_service()
     pricing = PricingService(db)
     return AvailabilityService(db, pricing)
 
@@ -57,6 +60,7 @@ def check_availability(check_in: str, check_out: str) -> dict[str, Any]:
     Returns:
         Dictionary with availability status, unavailable dates, and pricing summary
     """
+    logger.info("check_availability called", extra={"check_in": check_in, "check_out": check_out})
     try:
         start_date = _parse_date(check_in)
         end_date = _parse_date(check_out)
@@ -162,6 +166,7 @@ def get_calendar(month: str) -> dict[str, Any]:
     Returns:
         Dictionary with available and unavailable dates for the month
     """
+    logger.info("get_calendar called", extra={"month": month})
     try:
         year, month_num = map(int, month.split("-"))
         first_day = date(year, month_num, 1)

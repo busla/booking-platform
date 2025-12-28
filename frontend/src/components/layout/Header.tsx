@@ -3,7 +3,7 @@
 /**
  * Header Component
  *
- * Displays the Summerhouse branding and optional user session info.
+ * Displays the Quesada Apartment branding and optional user session info.
  * Used across all pages for consistent navigation.
  */
 
@@ -34,7 +34,7 @@ export function Header({ onLogoClick }: HeaderProps) {
           }}
         >
           <span className="header-logo">☀️</span>
-          <span className="header-title">Summerhouse</span>
+          <span className="header-title">Quesada Apartment</span>
         </div>
 
         {/* Location Badge */}
