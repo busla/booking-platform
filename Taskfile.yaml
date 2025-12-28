@@ -6,6 +6,9 @@
 # Examples: task tf:init:dev, task tf:plan:prod, task tf:apply:dev
 version: "3"
 
+env:
+  AWS_PROFILE: apro-sandbox
+
 vars:
   TF_DIR: infrastructure
 
@@ -147,10 +150,25 @@ tasks:
       - frontend:dev
 
   test:
-    desc: Run all tests
+    desc: Run all tests (backend + frontend)
     cmds:
       - task: backend:test
       - task: frontend:test
+
+  test:all:
+    desc: Run ALL tests with verbose output (uses AWS_PROFILE=apro-sandbox)
+    cmds:
+      - echo "🧪 Running backend tests..."
+      - task: backend:test
+      - echo "🧪 Running frontend unit tests..."
+      - task: frontend:test
+      - echo "✅ All tests complete!"
+
+  test:integration:
+    desc: Run integration tests only (requires AWS credentials)
+    dir: backend
+    cmds:
+      - uv run pytest tests/integration/ -v
 
   lint:
     desc: Lint all code
@@ -166,7 +184,7 @@ tasks:
     desc: Generate TypeScript types from backend Pydantic models
     dir: backend
     cmds:
-      - source .venv/bin/activate && python scripts/generate_types.py
+      - uv run python scripts/generate_types.py
 
   # ============================================================================
   # Data Seeding
@@ -178,7 +196,7 @@ tasks:
       ENV: "{{index .MATCH 0}}"
     dir: backend
     cmds:
-      - source .venv/bin/activate && python scripts/seed_data.py --env {{.ENV}}
+      - uv run python scripts/seed_data.py --env {{.ENV}}
 
   # ============================================================================
   # Internal Tasks (reusable templates)
@@ -217,7 +235,7 @@ tasks:
       - sh: test -d environments/{{.ENV}}
         msg: "Environment '{{.ENV}}' not found. Run 'task tf:envs' to see available environments."
     cmds:
-      - terraform apply -var-file=environments/{{.ENV}}/terraform.tfvars.json {{.EXTRA_ARGS}}
+      - terraform apply -var-file=environments/{{.ENV}}/terraform.tfvars.json -auto-approve {{.EXTRA_ARGS}}
 
   _tf:destroy:
     internal: true

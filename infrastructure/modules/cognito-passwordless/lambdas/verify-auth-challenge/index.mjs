@@ -3,6 +3,7 @@
  *
  * Validates the code entered by the user against DynamoDB.
  * Implements rate limiting via attempt counter.
+ * For the anonymous user (ANONYMOUS_USER_EMAIL), auto-succeeds with static code.
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
@@ -17,6 +18,7 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 const TABLE_NAME = process.env.VERIFICATION_TABLE;
 const MAX_ATTEMPTS = parseInt(process.env.MAX_ATTEMPTS ?? '3', 10);
+const ANONYMOUS_USER_EMAIL = process.env.ANONYMOUS_USER_EMAIL ?? '';
 
 export const handler = async (event) => {
   console.log('VerifyAuthChallenge event:', JSON.stringify(event));
@@ -24,6 +26,15 @@ export const handler = async (event) => {
   const email = event.request.userAttributes.email;
   const userCode = event.request.challengeAnswer;
 
+  // Anonymous user: auto-succeed with static code
+  if (ANONYMOUS_USER_EMAIL && email === ANONYMOUS_USER_EMAIL) {
+    const isCorrect = userCode === 'ANONYMOUS';
+    console.log(`Anonymous user verification: ${isCorrect ? 'success' : 'failed'}`);
+    event.response.answerCorrect = isCorrect;
+    return event;
+  }
+
+  // Regular user: verify against DynamoDB
   try {
     // Get stored code
     const { Item: item } = await docClient.send(new GetCommand({

@@ -4,14 +4,18 @@ These tools allow the booking agent to get pricing information,
 calculate totals, explain seasonal variations, and validate minimum stays.
 """
 
+import logging
 from datetime import date, datetime, timedelta
 from typing import Any
 
 from boto3.dynamodb.conditions import Key
 from strands import tool
 
+logger = logging.getLogger(__name__)
+
+from src.models.errors import ErrorCode, ToolError
 from src.models.pricing import Pricing
-from src.services.dynamodb import DynamoDBService
+from src.services.dynamodb import get_dynamodb_service
 
 
 # Season categorization thresholds (rates in cents)
@@ -19,9 +23,9 @@ LOW_SEASON_MAX_RATE = 10000  # €100 or less is low season
 HIGH_SEASON_MIN_RATE = 14000  # €140 or more is high/peak season
 
 
-def _get_db() -> DynamoDBService:
-    """Get DynamoDB service instance."""
-    return DynamoDBService()
+def _get_db():
+    """Get shared DynamoDB service instance (singleton for performance)."""
+    return get_dynamodb_service()
 
 
 def _parse_date(date_str: str) -> date:
@@ -181,6 +185,7 @@ def get_pricing(check_in: str, check_out: str) -> dict[str, Any]:
     Returns:
         Dictionary with pricing details including nightly rate, fees, and total
     """
+    logger.info("get_pricing called", extra={"check_in": check_in, "check_out": check_out})
     try:
         start_date = _parse_date(check_in)
         end_date = _parse_date(check_out)
@@ -205,12 +210,15 @@ def get_pricing(check_in: str, check_out: str) -> dict[str, Any]:
 
     # Check minimum nights
     if nights < pricing.minimum_nights:
-        return {
-            "status": "error",
-            "minimum_nights_required": pricing.minimum_nights,
-            "nights_requested": nights,
-            "message": f"The minimum stay during {pricing.season_name} is {pricing.minimum_nights} nights. You requested {nights} night(s).",
-        }
+        error = ToolError.from_code(
+            ErrorCode.MINIMUM_NIGHTS_NOT_MET,
+            details={
+                "minimum_nights_required": str(pricing.minimum_nights),
+                "nights_requested": str(nights),
+                "season_name": pricing.season_name,
+            },
+        )
+        return error.model_dump()
 
     # Calculate total
     subtotal = pricing.nightly_rate * nights
@@ -273,6 +281,7 @@ def calculate_total(
     Returns:
         Dictionary with total amount and optional breakdown
     """
+    logger.info("calculate_total called", extra={"check_in": check_in, "check_out": check_out, "include_breakdown": include_breakdown})
     try:
         start_date = _parse_date(check_in)
         end_date = _parse_date(check_out)
@@ -297,12 +306,14 @@ def calculate_total(
 
     # Check minimum nights
     if nights < pricing.minimum_nights:
-        return {
-            "status": "error",
-            "minimum_nights_required": pricing.minimum_nights,
-            "nights_requested": nights,
-            "message": f"Minimum stay is {pricing.minimum_nights} nights. Please adjust your dates.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.MINIMUM_NIGHTS_NOT_MET,
+            details={
+                "minimum_nights_required": str(pricing.minimum_nights),
+                "nights_requested": str(nights),
+            },
+        )
+        return error.model_dump()
 
     # Calculate amounts
     subtotal = pricing.nightly_rate * nights
@@ -346,6 +357,7 @@ def get_seasonal_rates() -> dict[str, Any]:
     Returns:
         Dictionary with all seasonal rates and their periods
     """
+    logger.info("get_seasonal_rates called")
     db = _get_db()
 
     # Query all pricing records
@@ -432,6 +444,7 @@ def check_minimum_stay(check_in: str, check_out: str) -> dict[str, Any]:
     Returns:
         Dictionary with validation result and minimum stay details
     """
+    logger.info("check_minimum_stay called", extra={"check_in": check_in, "check_out": check_out})
     try:
         start_date = _parse_date(check_in)
         end_date = _parse_date(check_out)
@@ -503,6 +516,7 @@ def get_minimum_stay_info(target_date: str) -> dict[str, Any]:
     Returns:
         Dictionary with minimum stay information for that season
     """
+    logger.info("get_minimum_stay_info called", extra={"target_date": target_date})
     try:
         check_date = _parse_date(target_date)
     except ValueError:

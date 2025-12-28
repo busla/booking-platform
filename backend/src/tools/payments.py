@@ -5,11 +5,14 @@ Currently implements a mock payment provider that always succeeds.
 In production, integrate with Stripe, PayPal, etc.
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from strands import tool
+
+logger = logging.getLogger(__name__)
 
 from src.models.enums import (
     PaymentMethod,
@@ -18,12 +21,13 @@ from src.models.enums import (
     ReservationStatus,
     TransactionStatus,
 )
-from src.services.dynamodb import DynamoDBService
+from src.models.errors import ErrorCode, ToolError
+from src.services.dynamodb import get_dynamodb_service
 
 
-def _get_db() -> DynamoDBService:
-    """Get DynamoDB service instance."""
-    return DynamoDBService()
+def _get_db():
+    """Get shared DynamoDB service instance (singleton for performance)."""
+    return get_dynamodb_service()
 
 
 def _generate_transaction_id() -> str:
@@ -51,6 +55,7 @@ def process_payment(
     Returns:
         Dictionary with payment result and updated reservation status
     """
+    logger.info("process_payment called", extra={"reservation_id": reservation_id, "payment_method": payment_method})
     db = _get_db()
 
     # Validate payment method
@@ -65,27 +70,27 @@ def process_payment(
     reservation = db.get_item("reservations", {"reservation_id": reservation_id})
 
     if not reservation:
-        return {
-            "status": "error",
-            "code": "RESERVATION_NOT_FOUND",
-            "message": f"Reservation {reservation_id} not found. Please check the ID.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.RESERVATION_NOT_FOUND,
+            details={"reservation_id": reservation_id},
+        )
+        return error.model_dump()
 
     # Check if already paid
     if reservation.get("payment_status") == PaymentStatus.PAID.value:
-        return {
-            "status": "error",
-            "code": "ALREADY_PAID",
-            "message": f"Reservation {reservation_id} has already been paid.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.PAYMENT_FAILED,
+            details={"reason": "already_paid", "reservation_id": reservation_id},
+        )
+        return error.model_dump()
 
     # Check reservation status
     if reservation.get("status") == ReservationStatus.CANCELLED.value:
-        return {
-            "status": "error",
-            "code": "RESERVATION_CANCELLED",
-            "message": "Cannot process payment for a cancelled reservation.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.UNAUTHORIZED,
+            details={"reason": "reservation_cancelled", "reservation_id": reservation_id},
+        )
+        return error.model_dump()
 
     # Get amount to charge
     amount_cents = int(reservation["total_amount"])
@@ -101,12 +106,11 @@ def process_payment(
 
     if not payment_success:
         # Handle payment failure (won't happen in mock)
-        return {
-            "status": "error",
-            "code": "PAYMENT_FAILED",
-            "message": "Payment processing failed. Please try again or use a different payment method.",
-            "retry_allowed": True,
-        }
+        error = ToolError.from_code(
+            ErrorCode.PAYMENT_FAILED,
+            details={"reason": "processing_failed", "retry_allowed": "true"},
+        )
+        return error.model_dump()
 
     # Create payment record (payment_id is the PK, transaction_id is alias)
     payment_record = {
@@ -164,17 +168,18 @@ def get_payment_status(reservation_id: str) -> dict[str, Any]:
     Returns:
         Dictionary with payment status information
     """
+    logger.info("get_payment_status called", extra={"reservation_id": reservation_id})
     db = _get_db()
 
     # Get reservation
     reservation = db.get_item("reservations", {"reservation_id": reservation_id})
 
     if not reservation:
-        return {
-            "status": "error",
-            "code": "RESERVATION_NOT_FOUND",
-            "message": f"Reservation {reservation_id} not found.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.RESERVATION_NOT_FOUND,
+            details={"reservation_id": reservation_id},
+        )
+        return error.model_dump()
 
     payment_status = reservation.get("payment_status", PaymentStatus.PENDING.value)
     reservation_status = reservation.get("status", ReservationStatus.PENDING.value)
@@ -237,6 +242,7 @@ def retry_payment(
     Returns:
         Dictionary with payment result
     """
+    logger.info("retry_payment called", extra={"reservation_id": reservation_id, "payment_method": payment_method})
     # This essentially calls process_payment but with explicit retry semantics
     db = _get_db()
 
@@ -244,25 +250,25 @@ def retry_payment(
     reservation = db.get_item("reservations", {"reservation_id": reservation_id})
 
     if not reservation:
-        return {
-            "status": "error",
-            "code": "RESERVATION_NOT_FOUND",
-            "message": f"Reservation {reservation_id} not found.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.RESERVATION_NOT_FOUND,
+            details={"reservation_id": reservation_id},
+        )
+        return error.model_dump()
 
     if reservation.get("payment_status") == PaymentStatus.PAID.value:
-        return {
-            "status": "error",
-            "code": "ALREADY_PAID",
-            "message": "This reservation has already been paid. No retry needed.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.PAYMENT_FAILED,
+            details={"reason": "already_paid", "reservation_id": reservation_id},
+        )
+        return error.model_dump()
 
     if reservation.get("status") == ReservationStatus.CANCELLED.value:
-        return {
-            "status": "error",
-            "code": "RESERVATION_CANCELLED",
-            "message": "This reservation has been cancelled and cannot be paid for.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.UNAUTHORIZED,
+            details={"reason": "reservation_cancelled", "reservation_id": reservation_id},
+        )
+        return error.model_dump()
 
     # Delegate to process_payment
     return process_payment(reservation_id, payment_method)

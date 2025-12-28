@@ -127,8 +127,8 @@ module "cloudfront" {
   # S3 Origin
   origin = {
     s3_origin = {
-      domain_name           = module.s3_bucket.s3_bucket_bucket_regional_domain_name
-      origin_access_control = "s3_oac"
+      domain_name              = module.s3_bucket.s3_bucket_bucket_regional_domain_name
+      origin_access_control_key = "s3_oac"
     }
   }
 
@@ -201,10 +201,91 @@ module "cloudfront" {
     acm_certificate_arn      = var.certificate_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
-  } : {
+    } : {
     cloudfront_default_certificate = true
     minimum_protocol_version       = "TLSv1"
   }
 
   tags = module.label.tags
+}
+
+# -----------------------------------------------------------------------------
+# Route53 DNS Records (alias to CloudFront)
+# -----------------------------------------------------------------------------
+
+# A record (IPv4) pointing to CloudFront
+resource "aws_route53_record" "a" {
+  count = var.create_route53_records && var.hosted_zone_id != "" && var.domain_name != "" ? 1 : 0
+
+  zone_id = var.hosted_zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = module.cloudfront.cloudfront_distribution_domain_name
+    zone_id                = module.cloudfront.cloudfront_distribution_hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# AAAA record (IPv6) pointing to CloudFront
+resource "aws_route53_record" "aaaa" {
+  count = var.create_route53_records && var.hosted_zone_id != "" && var.domain_name != "" ? 1 : 0
+
+  zone_id = var.hosted_zone_id
+  name    = var.domain_name
+  type    = "AAAA"
+
+  alias {
+    name                   = module.cloudfront.cloudfront_distribution_domain_name
+    zone_id                = module.cloudfront.cloudfront_distribution_hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# -----------------------------------------------------------------------------
+# Frontend Build and Deploy
+# -----------------------------------------------------------------------------
+
+# Build the frontend (Next.js static export)
+resource "terraform_data" "frontend_build" {
+  count = var.frontend_build_dir != null ? 1 : 0
+
+  triggers_replace = {
+    # Hash ALL frontend files except generated directories (node_modules, .next, out, .yarn)
+    # fileset excludes directories by not matching them - we only match actual source files
+    frontend_hash = sha256(join("", [
+      for f in sort(setunion(
+        # Source code
+        fileset("${var.frontend_build_dir}/..", "src/**/*"),
+        # Config files in root
+        fileset("${var.frontend_build_dir}/..", "*.{json,js,mjs,ts,cjs,yaml,yml}"),
+        # Public assets
+        fileset("${var.frontend_build_dir}/..", "public/**/*"),
+      )) :
+      filesha256("${var.frontend_build_dir}/../${f}")
+    ]))
+    bucket = module.s3_bucket.s3_bucket_id
+  }
+
+  provisioner "local-exec" {
+    working_dir = "${var.frontend_build_dir}/.."
+    command     = "yarn install && yarn build"
+  }
+}
+
+# Sync to S3 and invalidate CloudFront
+resource "terraform_data" "frontend_deploy" {
+  count = var.frontend_build_dir != null ? 1 : 0
+
+  triggers_replace = {
+    build_id        = terraform_data.frontend_build[0].id
+    distribution_id = module.cloudfront.cloudfront_distribution_id
+  }
+
+  provisioner "local-exec" {
+    command = "aws s3 sync ${var.frontend_build_dir} s3://${module.s3_bucket.s3_bucket_id}/ --delete && aws cloudfront create-invalidation --distribution-id ${module.cloudfront.cloudfront_distribution_id} --paths '/*'"
+  }
+
+  depends_on = [terraform_data.frontend_build]
 }

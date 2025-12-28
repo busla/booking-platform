@@ -40,6 +40,13 @@ from .property import (
     PropertyDetailsResponse,
     PropertySummary,
 )
+from .errors import (
+    BookingError,
+    ErrorCode,
+    ERROR_MESSAGES,
+    ERROR_RECOVERY,
+    ToolError,
+)
 
 __all__ = [
     # Enums
@@ -89,4 +96,10 @@ __all__ = [
     "Property",
     "PropertyDetailsResponse",
     "PropertySummary",
+    # Errors
+    "BookingError",
+    "ErrorCode",
+    "ERROR_MESSAGES",
+    "ERROR_RECOVERY",
+    "ToolError",
 ]

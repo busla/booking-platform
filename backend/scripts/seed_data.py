@@ -2,15 +2,16 @@
 """Seed development database with test data.
 
 This script populates DynamoDB tables with realistic test data for local
-development and testing. Data is structured to test various scenarios:
-- Seasonal pricing with different rates and minimum stays
-- Sample availability records
-- Test reservations and guests (optional)
+development and testing. Per FR-003 and data-model.md requirements:
+- Seasonal pricing for 2+ years with different rates and minimum stays
+- 2 years of individual availability date records (status='available' by default)
+- Sample guest records (optional)
 
 Usage:
     python scripts/seed_data.py --env dev
     python scripts/seed_data.py --env dev --pricing-only
     python scripts/seed_data.py --env dev --clear-first
+    python scripts/seed_data.py --env dev --skip-guests
 
 Or via Taskfile:
     task seed:dev
@@ -93,15 +94,66 @@ def create_seasonal_pricing(env: str) -> list[dict]:
             "cleaning_fee": 6000,
             "is_active": "true",
         },
-        # 2026 seasons for cross-year bookings
+        # 2026 seasons for cross-year bookings (full year coverage)
         {
             "season_id": "low-winter-2026",
-            "season_name": "Low Season (Winter)",
+            "season_name": "Low Season (Winter 2026)",
             "start_date": "2026-01-01",
             "end_date": "2026-03-31",
             "nightly_rate": 8500,  # €85.00 (slight increase)
             "minimum_nights": 3,
             "cleaning_fee": 5000,
+            "is_active": "true",
+        },
+        {
+            "season_id": "mid-spring-2026",
+            "season_name": "Mid Season (Spring 2026)",
+            "start_date": "2026-04-01",
+            "end_date": "2026-06-30",
+            "nightly_rate": 10500,  # €105.00
+            "minimum_nights": 5,
+            "cleaning_fee": 5000,
+            "is_active": "true",
+        },
+        {
+            "season_id": "high-summer-2026",
+            "season_name": "High Season (Summer 2026)",
+            "start_date": "2026-07-01",
+            "end_date": "2026-08-31",
+            "nightly_rate": 16000,  # €160.00
+            "minimum_nights": 7,
+            "cleaning_fee": 6000,
+            "is_active": "true",
+        },
+        {
+            "season_id": "mid-fall-2026",
+            "season_name": "Mid Season (Fall 2026)",
+            "start_date": "2026-09-01",
+            "end_date": "2026-11-30",
+            "nightly_rate": 10500,  # €105.00
+            "minimum_nights": 5,
+            "cleaning_fee": 5000,
+            "is_active": "true",
+        },
+        {
+            "season_id": "peak-christmas-2026",
+            "season_name": "Peak Season (Christmas 2026)",
+            "start_date": "2026-12-01",
+            "end_date": "2026-12-31",
+            "nightly_rate": 19000,  # €190.00
+            "minimum_nights": 7,
+            "cleaning_fee": 6000,
+            "is_active": "true",
+        },
+        # 2027 Q1 for 2-year coverage
+        {
+            "season_id": "low-winter-2027",
+            "season_name": "Low Season (Winter 2027)",
+            "start_date": "2027-01-01",
+            "end_date": "2027-03-31",
+            "nightly_rate": 9000,  # €90.00
+            "minimum_nights": 3,
+            "cleaning_fee": 5500,
             "is_active": "true",
         },
     ]
@@ -119,97 +171,136 @@ def create_seasonal_pricing(env: str) -> list[dict]:
     return seasons
 
 
-def create_sample_availability(env: str) -> list[dict]:
-    """Create sample availability records.
+def create_availability(env: str, years: int = 2) -> int:
+    """Create availability records for the next N years.
 
-    Sets up availability for the next 6 months with some blocked dates
-    to simulate existing bookings.
+    Per FR-003 and data-model.md, pre-populates availability table with
+    individual date records. Each date has PK='date' (YYYY-MM-DD format)
+    and status='available' by default.
+
+    Args:
+        env: Target environment
+        years: Number of years to seed (default: 2)
+
+    Returns:
+        Number of records created
     """
     from datetime import timedelta
-
-    # Start from today
-    today = date.today()
-
-    # Sample blocked periods (existing bookings)
-    blocked_periods = [
-        # Week blocked in 2 weeks
-        {
-            "start": today + timedelta(days=14),
-            "end": today + timedelta(days=21),
-            "reason": "Booked - Guest: Smith Family",
-        },
-        # Long weekend blocked in 1 month
-        {
-            "start": today + timedelta(days=30),
-            "end": today + timedelta(days=33),
-            "reason": "Booked - Guest: Johnson",
-        },
-        # Two weeks in summer (July 15-28)
-        {
-            "start": date(2025, 7, 15),
-            "end": date(2025, 7, 28),
-            "reason": "Booked - Guest: Williams Family",
-        },
-    ]
 
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(get_table_name(env, "availability"))
 
     print(f"Seeding availability table: {table.name}")
+    print(f"  Creating {years} years of availability records...")
 
-    records = []
-    for period in blocked_periods:
-        record = {
-            "date_range": f"{period['start'].isoformat()}#{period['end'].isoformat()}",
-            "start_date": period["start"].isoformat(),
-            "end_date": period["end"].isoformat(),
-            "is_available": False,
-            "reason": period["reason"],
-        }
-        table.put_item(Item=record)
-        records.append(record)
-        print(f"  ✓ Blocked: {period['start']} to {period['end']} ({period['reason']})")
+    # Start from today
+    today = date.today()
+    end_date = today + timedelta(days=365 * years)
 
-    return records
+    # Sample blocked periods (existing bookings) for realistic test data
+    blocked_periods = [
+        # Week blocked in 2 weeks
+        (today + timedelta(days=14), today + timedelta(days=20), "RES-2025-TEST001"),
+        # Long weekend blocked in 1 month
+        (today + timedelta(days=30), today + timedelta(days=33), "RES-2025-TEST002"),
+        # Two weeks in summer (July 15-28, 2025)
+        (date(2025, 7, 15), date(2025, 7, 28), "RES-2025-TEST003"),
+    ]
+
+    # Build set of blocked dates for quick lookup
+    blocked_dates: dict[str, str] = {}  # date_str -> reservation_id
+    for start, end, res_id in blocked_periods:
+        current = start
+        while current < end:
+            blocked_dates[current.isoformat()] = res_id
+            current += timedelta(days=1)
+
+    # Generate all dates and write in batches
+    count = 0
+    current_date = today
+
+    with table.batch_writer() as batch:
+        while current_date < end_date:
+            date_str = current_date.isoformat()
+
+            # Check if date is blocked
+            if date_str in blocked_dates:
+                record = {
+                    "date": date_str,
+                    "status": "booked",
+                    "reservation_id": blocked_dates[date_str],
+                    "updated_at": today.isoformat() + "T00:00:00Z",
+                }
+            else:
+                record = {
+                    "date": date_str,
+                    "status": "available",
+                    "updated_at": today.isoformat() + "T00:00:00Z",
+                }
+
+            batch.put_item(Item=record)
+            count += 1
+            current_date += timedelta(days=1)
+
+    # Print summary
+    booked_count = len(blocked_dates)
+    available_count = count - booked_count
+    print(f"  ✓ Created {count} availability records")
+    print(f"    - {available_count} available dates")
+    print(f"    - {booked_count} booked dates (test reservations)")
+
+    return count
 
 
 def create_sample_guests(env: str) -> list[dict]:
-    """Create sample guest records for testing."""
+    """Create sample guest records for testing.
+
+    Schema matches guest.py tool requirements:
+    - guest_id (PK)
+    - email (with email-index GSI)
+    - email_verified, name, phone, preferred_language
+    - first_verified_at, total_bookings, created_at, updated_at
+    """
     import uuid
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
 
     guests = [
         {
             "guest_id": str(uuid.uuid4()),
             "email": "john.smith@example.com",
-            "first_name": "John",
-            "last_name": "Smith",
+            "name": "John Smith",
             "phone": "+1-555-0101",
-            "country": "US",
-            "is_verified": True,
-            "verification_method": "email",
+            "email_verified": True,
+            "preferred_language": "en",
+            "total_bookings": 2,
+            "first_verified_at": "2025-01-15T10:30:00Z",
             "created_at": "2025-01-15T10:30:00Z",
+            "updated_at": now,
         },
         {
             "guest_id": str(uuid.uuid4()),
             "email": "maria.garcia@example.com",
-            "first_name": "Maria",
-            "last_name": "Garcia",
+            "name": "Maria Garcia",
             "phone": "+34-600-123456",
-            "country": "ES",
-            "is_verified": True,
-            "verification_method": "phone",
+            "email_verified": True,
+            "preferred_language": "es",
+            "total_bookings": 1,
+            "first_verified_at": "2025-02-01T14:20:00Z",
             "created_at": "2025-02-01T14:20:00Z",
+            "updated_at": now,
         },
         {
             "guest_id": str(uuid.uuid4()),
             "email": "test.user@example.com",
-            "first_name": "Test",
-            "last_name": "User",
+            "name": "Test User",
             "phone": "+44-7700-900123",
-            "country": "GB",
-            "is_verified": False,
-            "verification_method": None,
+            "email_verified": False,
+            "preferred_language": "en",
+            "total_bookings": 0,
             "created_at": "2025-02-20T09:00:00Z",
+            "updated_at": now,
         },
     ]
 
@@ -220,8 +311,8 @@ def create_sample_guests(env: str) -> list[dict]:
 
     for guest in guests:
         table.put_item(Item=guest)
-        status = "✓" if guest["is_verified"] else "○"
-        print(f"  {status} {guest['first_name']} {guest['last_name']} ({guest['email']})")
+        status = "✓" if guest["email_verified"] else "○"
+        print(f"  {status} {guest['name']} ({guest['email']})")
 
     return guests
 
@@ -318,10 +409,10 @@ def main() -> int:
         print("\n✅ Pricing seeded successfully!")
         return 0
 
-    # Seed availability
+    # Seed availability (2 years of dates per FR-003)
     print()
     try:
-        create_sample_availability(args.env)
+        create_availability(args.env, years=2)
     except Exception as e:
         print(f"  ❌ Failed to seed availability: {e}")
         # Non-fatal, continue

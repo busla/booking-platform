@@ -4,20 +4,24 @@ These tools allow the booking agent to create reservations,
 check reservation details, and manage bookings with double-booking prevention.
 """
 
+import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from strands import tool
 
+logger = logging.getLogger(__name__)
+
 from src.models.enums import AvailabilityStatus, PaymentStatus, ReservationStatus
+from src.models.errors import ErrorCode, ToolError
 from src.models.reservation import Reservation
-from src.services.dynamodb import DynamoDBService
+from src.services.dynamodb import DynamoDBService, get_dynamodb_service
 
 
 def _get_db() -> DynamoDBService:
-    """Get DynamoDB service instance."""
-    return DynamoDBService()
+    """Get shared DynamoDB service instance (singleton for performance)."""
+    return get_dynamodb_service()
 
 
 def _parse_date(date_str: str) -> date:
@@ -97,6 +101,7 @@ def create_reservation(
     Returns:
         Dictionary with reservation details or error message
     """
+    logger.info("create_reservation called", extra={"guest_id": guest_id, "check_in": check_in, "check_out": check_out, "num_adults": num_adults, "num_children": num_children})
     try:
         start_date = _parse_date(check_in)
         end_date = _parse_date(check_out)
@@ -121,10 +126,11 @@ def create_reservation(
     total_guests = num_adults + num_children
     max_guests = 6  # Property maximum
     if total_guests > max_guests:
-        return {
-            "status": "error",
-            "message": f"Maximum {max_guests} guests allowed. You requested {total_guests}.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.MAX_GUESTS_EXCEEDED,
+            details={"requested": str(total_guests), "maximum": str(max_guests)},
+        )
+        return error.model_dump()
 
     nights = (end_date - start_date).days
     dates_to_book = _date_range(start_date, end_date)
@@ -135,12 +141,11 @@ def create_reservation(
     is_available, unavailable_dates = _check_dates_available(db, dates_to_book)
 
     if not is_available:
-        return {
-            "status": "error",
-            "code": "DATES_UNAVAILABLE",
-            "unavailable_dates": unavailable_dates,
-            "message": f"Sorry, the following dates are no longer available: {', '.join(unavailable_dates)}. Would you like to check alternative dates?",
-        }
+        error = ToolError.from_code(
+            ErrorCode.DATES_UNAVAILABLE,
+            details={"unavailable_dates": ", ".join(unavailable_dates)},
+        )
+        return error.model_dump()
 
     # Get pricing
     nightly_rate, cleaning_fee = _get_pricing_for_dates(start_date, end_date)
@@ -220,11 +225,12 @@ def create_reservation(
     success = db.transact_write(transact_items)
 
     if not success:
-        return {
-            "status": "error",
-            "code": "BOOKING_CONFLICT",
-            "message": "Sorry, someone else just booked one of your dates. Please check availability again and choose new dates.",
-        }
+        # Booking conflict is a form of dates unavailable (race condition)
+        error = ToolError.from_code(
+            ErrorCode.DATES_UNAVAILABLE,
+            details={"reason": "booking_conflict"},
+        )
+        return error.model_dump()
 
     return {
         "status": "success",
@@ -288,26 +294,27 @@ def modify_reservation(
     Returns:
         Dictionary with updated reservation details or error message
     """
+    logger.info("modify_reservation called", extra={"reservation_id": reservation_id})
     db = _get_db()
 
     # Get existing reservation
     item = db.get_item("reservations", {"reservation_id": reservation_id})
 
     if not item:
-        return {
-            "status": "error",
-            "code": "NOT_FOUND",
-            "message": f"Reservation {reservation_id} not found. Please check the ID and try again.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.RESERVATION_NOT_FOUND,
+            details={"reservation_id": reservation_id},
+        )
+        return error.model_dump()
 
     # Check if reservation can be modified
     current_status = item.get("status")
     if current_status in [ReservationStatus.CANCELLED.value, ReservationStatus.COMPLETED.value]:
-        return {
-            "status": "error",
-            "code": "CANNOT_MODIFY",
-            "message": f"Cannot modify a {current_status} reservation.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.UNAUTHORIZED,
+            details={"reason": f"Cannot modify a {current_status} reservation"},
+        )
+        return error.model_dump()
 
     # Parse dates
     current_check_in = _parse_date(item["check_in"])
@@ -361,12 +368,11 @@ def modify_reservation(
         if dates_to_check:
             is_available, unavailable_dates = _check_dates_available(db, dates_to_check)
             if not is_available:
-                return {
-                    "status": "error",
-                    "code": "DATES_UNAVAILABLE",
-                    "unavailable_dates": unavailable_dates,
-                    "message": f"These dates are not available: {', '.join(unavailable_dates)}. Please try different dates.",
-                }
+                error = ToolError.from_code(
+                    ErrorCode.DATES_UNAVAILABLE,
+                    details={"unavailable_dates": ", ".join(unavailable_dates)},
+                )
+                return error.model_dump()
 
     # Recalculate pricing if dates changed
     nights = (check_out - check_in).days
@@ -469,33 +475,34 @@ def cancel_reservation(
     Returns:
         Dictionary with cancellation details and refund information
     """
+    logger.info("cancel_reservation called", extra={"reservation_id": reservation_id})
     db = _get_db()
 
     # Get existing reservation
     item = db.get_item("reservations", {"reservation_id": reservation_id})
 
     if not item:
-        return {
-            "status": "error",
-            "code": "NOT_FOUND",
-            "message": f"Reservation {reservation_id} not found. Please check the ID and try again.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.RESERVATION_NOT_FOUND,
+            details={"reservation_id": reservation_id},
+        )
+        return error.model_dump()
 
     # Check if reservation can be cancelled
     current_status = item.get("status")
     if current_status == ReservationStatus.CANCELLED.value:
-        return {
-            "status": "error",
-            "code": "ALREADY_CANCELLED",
-            "message": "This reservation has already been cancelled.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.UNAUTHORIZED,
+            details={"reason": "Reservation has already been cancelled"},
+        )
+        return error.model_dump()
 
     if current_status == ReservationStatus.COMPLETED.value:
-        return {
-            "status": "error",
-            "code": "CANNOT_CANCEL",
-            "message": "Cannot cancel a completed reservation.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.UNAUTHORIZED,
+            details={"reason": "Cannot cancel a completed reservation"},
+        )
+        return error.model_dump()
 
     # Parse check-in date and calculate days until arrival
     check_in = _parse_date(item["check_in"])
@@ -505,11 +512,11 @@ def cancel_reservation(
 
     # Check if reservation is in the past
     if check_in <= today:
-        return {
-            "status": "error",
-            "code": "CANNOT_CANCEL",
-            "message": "Cannot cancel a reservation that has already started or completed.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.UNAUTHORIZED,
+            details={"reason": "Cannot cancel a reservation that has already started"},
+        )
+        return error.model_dump()
 
     # Calculate refund based on cancellation policy
     total_amount = int(item["total_amount"])
@@ -567,11 +574,12 @@ def cancel_reservation(
     success = db.transact_write(transact_items)
 
     if not success:
-        return {
-            "status": "error",
-            "code": "CANCELLATION_FAILED",
-            "message": "Failed to cancel reservation. Please try again.",
-        }
+        # Use PAYMENT_FAILED as closest match for transactional failure
+        error = ToolError.from_code(
+            ErrorCode.PAYMENT_FAILED,
+            details={"operation": "cancellation", "reason": "Transaction failed"},
+        )
+        return error.model_dump()
 
     return {
         "status": "success",
@@ -603,16 +611,17 @@ def get_reservation(reservation_id: str) -> dict[str, Any]:
     Returns:
         Dictionary with reservation details or error if not found
     """
+    logger.info("get_reservation called", extra={"reservation_id": reservation_id})
     db = _get_db()
 
     item = db.get_item("reservations", {"reservation_id": reservation_id})
 
     if not item:
-        return {
-            "status": "error",
-            "code": "NOT_FOUND",
-            "message": f"Reservation {reservation_id} not found. Please check the ID and try again.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.RESERVATION_NOT_FOUND,
+            details={"reservation_id": reservation_id},
+        )
+        return error.model_dump()
 
     return {
         "status": "success",

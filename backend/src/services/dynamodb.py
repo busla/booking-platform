@@ -10,6 +10,27 @@ from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
+# Module-level singleton for connection reuse (performance optimization T114)
+_dynamodb_service_instance: "DynamoDBService | None" = None
+
+
+def get_dynamodb_service(environment: str | None = None) -> "DynamoDBService":
+    """Get or create the singleton DynamoDB service instance.
+
+    This avoids creating new boto3 clients on every tool call,
+    which adds ~100-200ms overhead per instantiation.
+
+    Args:
+        environment: Environment name. Only used on first call.
+
+    Returns:
+        Shared DynamoDBService instance
+    """
+    global _dynamodb_service_instance
+    if _dynamodb_service_instance is None:
+        _dynamodb_service_instance = DynamoDBService(environment)
+    return _dynamodb_service_instance
+
 
 class DynamoDBService:
     """Service for DynamoDB operations with environment-aware table names."""

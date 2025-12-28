@@ -935,3 +935,68 @@ resource "aws_cognito_user_pool_client" "main" {
 2. **Phase 1**: Define API contracts (MCP tools, REST endpoints)
 3. **Phase 1**: Create quickstart.md for development setup
 4. **Phase 2**: Generate tasks.md via `/speckit.tasks`
+
+---
+
+## 5. ai-elements Research (Frontend UI Components)
+
+**Status**: ⏳ PENDING (Constitution VI gate - must complete before UI implementation)
+
+### Overview
+
+Per Constitution Principle VI (UI Component Development), research of the `ai-elements` package is REQUIRED before implementing any custom frontend UI components for the agent interface.
+
+### Research Template
+
+Complete this section by task T032b before implementing Phase 3 UI tasks:
+
+#### 5.1 Package Analysis
+
+```
+Package: ai-elements
+Source: [npm / GitHub URL - to be determined]
+Version: [Latest stable version]
+Documentation: [URL]
+```
+
+#### 5.2 Available Components Catalogue
+
+| Component | Description | Applicable to Booking? | Notes |
+|-----------|-------------|----------------------|-------|
+| [Component 1] | [Description] | Yes/No/Partial | [Usage notes] |
+| [Component 2] | [Description] | Yes/No/Partial | [Usage notes] |
+| ... | ... | ... | ... |
+
+#### 5.3 Component Mapping to MVP Tasks
+
+| Task ID | Component Need | ai-elements Component | Decision |
+|---------|----------------|----------------------|----------|
+| T062 | Chat interface | [Component or N/A] | Use/Extend/Custom |
+| T063 | Message bubble | [Component or N/A] | Use/Extend/Custom |
+| T064 | Rich content renderer | [Component or N/A] | Use/Extend/Custom |
+| T066 | Availability calendar | [Component or N/A] | Use/Extend/Custom |
+| T092 | Photo gallery | [Component or N/A] | Use/Extend/Custom |
+
+#### 5.4 Identified Gaps
+
+List components required but NOT available in ai-elements:
+
+| Component Need | Justification for Custom Implementation |
+|----------------|----------------------------------------|
+| [Component] | [Why ai-elements doesn't meet requirement] |
+
+#### 5.5 Decision Record
+
+**Date**: [YYYY-MM-DD]
+**Researcher**: [Name/Agent]
+
+**Findings Summary**:
+[Brief summary of what ai-elements provides and what gaps exist]
+
+**Constitution Compliance**:
+- [ ] Researched ai-elements catalogue before planning UI implementation
+- [ ] Documented all available components and their applicability
+- [ ] Identified gaps with clear justification
+- [ ] Custom implementations only where ai-elements lacks functionality
+
+**Gate Status**: ⏳ PENDING → ✅ PASS (after research completion)

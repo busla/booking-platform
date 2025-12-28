@@ -5,6 +5,7 @@ sent to email addresses. This implements passwordless authentication
 for the booking flow.
 """
 
+import logging
 import random
 import string
 import uuid
@@ -13,12 +14,15 @@ from typing import Any
 
 from strands import tool
 
-from src.services.dynamodb import DynamoDBService
+logger = logging.getLogger(__name__)
+
+from src.models.errors import ErrorCode, ToolError
+from src.services.dynamodb import DynamoDBService, get_dynamodb_service
 
 
 def _get_db() -> DynamoDBService:
-    """Get DynamoDB service instance."""
-    return DynamoDBService()
+    """Get shared DynamoDB service instance (singleton for performance)."""
+    return get_dynamodb_service()
 
 
 def _generate_verification_code() -> str:
@@ -70,6 +74,7 @@ def initiate_verification(email: str) -> dict[str, Any]:
     Returns:
         Dictionary with verification status and next steps
     """
+    logger.info("initiate_verification called", extra={"email": email})
     # Basic email validation
     email = email.strip().lower()
     if not email or "@" not in email or "." not in email:
@@ -134,6 +139,7 @@ def verify_code(email: str, code: str) -> dict[str, Any]:
     Returns:
         Dictionary with verification result and guest_id if successful
     """
+    logger.info("verify_code called", extra={"email": email})
     email = email.strip().lower()
     code = code.strip()
 
@@ -150,37 +156,37 @@ def verify_code(email: str, code: str) -> dict[str, Any]:
     verification = db.get_item("verification_codes", {"email": email})
 
     if not verification:
-        return {
-            "status": "error",
-            "code": "NO_VERIFICATION_FOUND",
-            "message": "No verification code found for this email. Please request a new code.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.VERIFICATION_FAILED,
+            details={"reason": "no_verification_found", "email": email},
+        )
+        return error.model_dump()
 
     # Check if already verified
     if verification.get("verified"):
-        return {
-            "status": "error",
-            "code": "ALREADY_VERIFIED",
-            "message": "This code has already been used. Please request a new code if needed.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.VERIFICATION_FAILED,
+            details={"reason": "already_verified"},
+        )
+        return error.model_dump()
 
     # Check expiration
     expires_at = datetime.fromisoformat(verification["expires_at"])
     if datetime.now(timezone.utc) > expires_at.replace(tzinfo=timezone.utc):
-        return {
-            "status": "error",
-            "code": "CODE_EXPIRED",
-            "message": "This verification code has expired. Please request a new one.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.VERIFICATION_FAILED,
+            details={"reason": "code_expired"},
+        )
+        return error.model_dump()
 
     # Check attempts (max 5 tries)
     attempts = verification.get("attempts", 0)
     if attempts >= 5:
-        return {
-            "status": "error",
-            "code": "TOO_MANY_ATTEMPTS",
-            "message": "Too many failed attempts. Please request a new verification code.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.VERIFICATION_FAILED,
+            details={"reason": "too_many_attempts", "attempts": str(attempts)},
+        )
+        return error.model_dump()
 
     # Verify code
     if verification["code"] != code:
@@ -192,11 +198,11 @@ def verify_code(email: str, code: str) -> dict[str, Any]:
             {":attempts": attempts + 1},
         )
         remaining = 5 - (attempts + 1)
-        return {
-            "status": "error",
-            "code": "INVALID_CODE",
-            "message": f"Invalid verification code. You have {remaining} attempts remaining.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.VERIFICATION_FAILED,
+            details={"reason": "invalid_code", "remaining_attempts": str(remaining)},
+        )
+        return error.model_dump()
 
     # Mark as verified
     db.update_item(
@@ -270,6 +276,7 @@ def get_guest_info(email: str) -> dict[str, Any]:
     Returns:
         Dictionary with guest info or indication that guest is new
     """
+    logger.info("get_guest_info called", extra={"email": email})
     email = email.strip().lower()
 
     if not email or "@" not in email:
@@ -330,6 +337,7 @@ def update_guest_details(
     Returns:
         Dictionary with update status
     """
+    logger.info("update_guest_details called", extra={"guest_id": guest_id})
     if not guest_id:
         return {
             "status": "error",
@@ -350,11 +358,11 @@ def update_guest_details(
     # Find guest by ID (guest_id is the partition key)
     guest = db.get_item("guests", {"guest_id": guest_id})
     if not guest:
-        return {
-            "status": "error",
-            "code": "GUEST_NOT_FOUND",
-            "message": f"Guest {guest_id} not found. Please verify the guest first.",
-        }
+        error = ToolError.from_code(
+            ErrorCode.VERIFICATION_REQUIRED,
+            details={"guest_id": guest_id},
+        )
+        return error.model_dump()
 
     # Build update expression
     update_parts = []

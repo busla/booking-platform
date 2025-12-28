@@ -75,3 +75,15 @@ variable "price_class" {
   type        = string
   default     = "PriceClass_100" # US, Canada, Europe
 }
+
+variable "hosted_zone_id" {
+  description = "Route53 hosted zone ID for DNS records. If empty, no DNS records are created."
+  type        = string
+  default     = ""
+}
+
+variable "create_route53_records" {
+  description = "Whether to create Route53 A/AAAA records pointing to CloudFront"
+  type        = bool
+  default     = true
+}

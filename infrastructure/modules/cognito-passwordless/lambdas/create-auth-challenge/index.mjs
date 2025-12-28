@@ -2,6 +2,8 @@
  * Create Auth Challenge Lambda
  *
  * Generates a verification code, stores it in DynamoDB, and sends via SES.
+ * For the anonymous user (ANONYMOUS_USER_EMAIL), skips email and uses a
+ * static challenge that auto-succeeds.
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
@@ -16,6 +18,7 @@ const FROM_EMAIL = process.env.FROM_EMAIL;
 const CODE_TTL = parseInt(process.env.CODE_TTL ?? '300', 10);
 const CODE_LENGTH = parseInt(process.env.CODE_LENGTH ?? '6', 10);
 const MAX_ATTEMPTS = parseInt(process.env.MAX_ATTEMPTS ?? '3', 10);
+const ANONYMOUS_USER_EMAIL = process.env.ANONYMOUS_USER_EMAIL ?? '';
 
 /**
  * Generate a random numeric code
@@ -32,6 +35,25 @@ export const handler = async (event) => {
   console.log('CreateAuthChallenge event:', JSON.stringify(event));
 
   const email = event.request.userAttributes.email;
+
+  // Anonymous user: skip verification, use static code
+  if (ANONYMOUS_USER_EMAIL && email === ANONYMOUS_USER_EMAIL) {
+    console.log(`Anonymous user detected: ${email}, skipping email verification`);
+
+    // Use a static code for anonymous users (they'll send this same code back)
+    const anonymousCode = 'ANONYMOUS';
+
+    event.response.publicChallengeParameters = {
+      email,
+      isAnonymous: 'true',
+    };
+    event.response.privateChallengeParameters = { code: anonymousCode };
+    event.response.challengeMetadata = `ANONYMOUS-${email}`;
+
+    return event;
+  }
+
+  // Regular user: generate code, store, and send email
   const code = generateCode(CODE_LENGTH);
   const now = Math.floor(Date.now() / 1000);
   const ttl = now + CODE_TTL;

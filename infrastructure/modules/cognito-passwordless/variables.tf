@@ -73,3 +73,23 @@ variable "code_length" {
   type        = number
   default     = 6
 }
+
+# -----------------------------------------------------------------------------
+# Anonymous/Guest Access Configuration
+# -----------------------------------------------------------------------------
+
+variable "anonymous_user_email" {
+  description = <<-EOT
+    Email address for the shared anonymous user. When set, the custom auth Lambdas
+    will auto-succeed for this email (no verification email sent). All anonymous
+    visitors authenticate as this single shared user (1 MAU cost).
+
+    The JWT for this user will have email_verified=false, which tools can check
+    to distinguish anonymous users from verified users.
+
+    Example: "anonymous@guest.local"
+  EOT
+  type        = string
+  default     = ""
+}
+

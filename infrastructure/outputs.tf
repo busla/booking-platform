@@ -52,11 +52,46 @@ output "cognito_issuer_url" {
   value       = module.cognito.issuer_url
 }
 
-# AgentCore Outputs (uncomment when agentcore module is configured)
-# output "agentcore_endpoint" {
-#   description = "AgentCore Runtime endpoint URL"
-#   value       = module.agentcore.endpoint_url
-# }
+output "cognito_anonymous_user_email" {
+  description = "Email for the shared anonymous user (empty if anonymous access is disabled)"
+  value       = module.cognito.anonymous_user_email
+}
+
+output "cognito_identity_pool_id" {
+  description = "Cognito Identity Pool ID for IAM-based auth"
+  value       = module.cognito.identity_pool_id
+}
+
+output "cognito_identity_pool_arn" {
+  description = "Cognito Identity Pool ARN"
+  value       = module.cognito.identity_pool_arn
+}
+
+output "cognito_unauthenticated_role_arn" {
+  description = "IAM Role ARN for unauthenticated Identity Pool users"
+  value       = module.cognito.unauthenticated_role_arn
+}
+
+# AgentCore Outputs
+output "agentcore_runtime_id" {
+  description = "AgentCore Runtime ID"
+  value       = module.agentcore.runtime["booking"].runtime_id
+}
+
+output "agentcore_runtime_arn" {
+  description = "AgentCore Runtime ARN"
+  value       = module.agentcore.runtime["booking"].runtime_arn
+}
+
+output "agentcore_custom_endpoints" {
+  description = "AgentCore Runtime custom endpoints"
+  value       = module.agentcore.runtime["booking"].custom_endpoints
+}
+
+output "agentcore_memory_id" {
+  description = "AgentCore Memory ID (if enabled)"
+  value       = var.enable_agentcore_memory ? module.agentcore.memory.memory_id : null
+}
 
 # Static Website Outputs
 output "cloudfront_distribution_id" {

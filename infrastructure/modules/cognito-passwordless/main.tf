@@ -70,6 +70,7 @@ module "lambda_role" {
   # Lambda service can assume this role
   trust_policy_permissions = {
     LambdaServiceTrust = {
+      actions = ["sts:AssumeRole"]
       principals = [{
         type        = "Service"
         identifiers = ["lambda.amazonaws.com"]
@@ -199,11 +200,12 @@ resource "aws_lambda_function" "create_auth_challenge" {
 
   environment {
     variables = {
-      VERIFICATION_TABLE = var.verification_table_name
-      FROM_EMAIL         = var.ses_from_email
-      CODE_TTL           = tostring(var.code_ttl_seconds)
-      CODE_LENGTH        = tostring(var.code_length)
-      MAX_ATTEMPTS       = tostring(var.max_attempts)
+      VERIFICATION_TABLE   = var.verification_table_name
+      FROM_EMAIL           = var.ses_from_email
+      CODE_TTL             = tostring(var.code_ttl_seconds)
+      CODE_LENGTH          = tostring(var.code_length)
+      MAX_ATTEMPTS         = tostring(var.max_attempts)
+      ANONYMOUS_USER_EMAIL = var.anonymous_user_email
     }
   }
 
@@ -253,8 +255,9 @@ resource "aws_lambda_function" "verify_auth_challenge" {
 
   environment {
     variables = {
-      VERIFICATION_TABLE = var.verification_table_name
-      MAX_ATTEMPTS       = tostring(var.max_attempts)
+      VERIFICATION_TABLE   = var.verification_table_name
+      MAX_ATTEMPTS         = tostring(var.max_attempts)
+      ANONYMOUS_USER_EMAIL = var.anonymous_user_email
     }
   }
 
@@ -287,6 +290,12 @@ resource "aws_lambda_function" "pre_sign_up" {
   filename         = data.archive_file.pre_sign_up.output_path
   source_code_hash = data.archive_file.pre_sign_up.output_base64sha256
   timeout          = 10
+
+  environment {
+    variables = {
+      ANONYMOUS_USER_EMAIL = var.anonymous_user_email
+    }
+  }
 
   tags = module.label.tags
 }
@@ -383,4 +392,112 @@ resource "aws_cognito_user_pool_client" "main" {
 
   # No client secret for public client (frontend)
   generate_secret = false
+}
+
+# -----------------------------------------------------------------------------
+# Anonymous User Support (Simple Approach)
+# -----------------------------------------------------------------------------
+# Instead of complex Identity Pool + Token Exchange, we use a single shared
+# anonymous User Pool user. All anonymous visitors authenticate as this user.
+#
+# How it works:
+# 1. One User Pool user exists: anonymous@guest.local (1 MAU cost)
+# 2. Custom auth Lambdas auto-succeed for this email (no actual email sent)
+# 3. Frontend authenticates all anonymous visitors as this shared user
+# 4. JWT claims: email=anonymous@guest.local, email_verified=false
+# 5. Tools check email_verified claim: false=inquiry only, true=can book
+#
+# The anonymous user email is configurable via var.anonymous_user_email
+
+# -----------------------------------------------------------------------------
+# Cognito Identity Pool (for IAM-based auth)
+# -----------------------------------------------------------------------------
+# Provides temporary AWS credentials to anonymous users for SigV4 signing.
+# This enables direct invocation of AgentCore via IAM authentication.
+#
+# Flow:
+# 1. Frontend calls Cognito Identity to get credentials (no login required)
+# 2. Frontend uses credentials to sign HTTP requests with SigV4
+# 3. AgentCore validates IAM signature
+# 4. Request proceeds to agent
+
+resource "aws_cognito_identity_pool" "main" {
+  identity_pool_name               = "${module.label.id}-identity"
+  allow_unauthenticated_identities = true
+  allow_classic_flow               = true  # Required for full IAM role permissions (no session policy restrictions)
+
+  # Link to User Pool for authenticated users (future use)
+  cognito_identity_providers {
+    client_id               = aws_cognito_user_pool_client.main.id
+    provider_name           = aws_cognito_user_pool.main.endpoint
+    server_side_token_check = false
+  }
+
+  tags = module.label.tags
+}
+
+# IAM role for unauthenticated (anonymous) users
+resource "aws_iam_role" "unauthenticated" {
+  name = "${module.label.id}-identity-unauth"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = "cognito-identity.amazonaws.com"
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "cognito-identity.amazonaws.com:aud" = aws_cognito_identity_pool.main.id
+          }
+          "ForAnyValue:StringLike" = {
+            "cognito-identity.amazonaws.com:amr" = "unauthenticated"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = module.label.tags
+}
+
+# IAM role for authenticated users (stubbed for future use)
+resource "aws_iam_role" "authenticated" {
+  name = "${module.label.id}-identity-auth"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = "cognito-identity.amazonaws.com"
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "cognito-identity.amazonaws.com:aud" = aws_cognito_identity_pool.main.id
+          }
+          "ForAnyValue:StringLike" = {
+            "cognito-identity.amazonaws.com:amr" = "authenticated"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = module.label.tags
+}
+
+# Attach roles to Identity Pool
+resource "aws_cognito_identity_pool_roles_attachment" "main" {
+  identity_pool_id = aws_cognito_identity_pool.main.id
+
+  roles = {
+    "unauthenticated" = aws_iam_role.unauthenticated.arn
+    "authenticated"   = aws_iam_role.authenticated.arn
+  }
 }

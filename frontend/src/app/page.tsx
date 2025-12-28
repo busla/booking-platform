@@ -2,14 +2,18 @@
  * Quesada Apartment Chat Page
  *
  * Main chat interface for the vacation rental booking assistant.
- * Uses Vercel AI SDK v6 with ai-elements components.
+ * Uses direct browser-to-AgentCore communication via SigV4 signing.
+ *
+ * Architecture Note:
+ * Since this is a static export (S3 + CloudFront), there are no API routes.
+ * The browser calls AgentCore Runtime directly using Cognito Identity Pool
+ * credentials for anonymous IAM authentication.
  */
 
 'use client'
 
-import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport } from 'ai'
 import { useState, useRef, useCallback } from 'react'
+import { useAgentChat } from '@/hooks/useAgentChat'
 import {
   Conversation,
   ConversationContent,
@@ -61,12 +65,8 @@ export default function ChatPage() {
   // AI SDK v6: input state is now managed separately from useChat
   const [input, setInput] = useState('')
 
-  // AI SDK v6 useChat hook with transport-based architecture
-  const { messages, status, error, sendMessage } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-    }),
-  })
+  // Direct browser-to-AgentCore chat (no API route needed for static export)
+  const { messages, status, error, sendMessage } = useAgentChat()
 
   const isLoading = status === 'streaming' || status === 'submitted'
 

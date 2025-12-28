@@ -32,3 +32,43 @@ output "issuer_url" {
 
 # Note: verification_table_name and verification_table_arn are now inputs from dynamodb module
 # Note: data "aws_region" "current" is defined in main.tf
+
+# Anonymous user support
+output "anonymous_user_email" {
+  description = "Email address for the shared anonymous user (empty if not configured)"
+  value       = var.anonymous_user_email
+}
+
+# -----------------------------------------------------------------------------
+# Identity Pool Outputs (for IAM-based auth)
+# -----------------------------------------------------------------------------
+
+output "identity_pool_id" {
+  description = "Cognito Identity Pool ID"
+  value       = aws_cognito_identity_pool.main.id
+}
+
+output "identity_pool_arn" {
+  description = "Cognito Identity Pool ARN"
+  value       = aws_cognito_identity_pool.main.arn
+}
+
+output "unauthenticated_role_arn" {
+  description = "IAM Role ARN for unauthenticated Identity Pool users"
+  value       = aws_iam_role.unauthenticated.arn
+}
+
+output "unauthenticated_role_name" {
+  description = "IAM Role name for unauthenticated Identity Pool users"
+  value       = aws_iam_role.unauthenticated.name
+}
+
+output "authenticated_role_arn" {
+  description = "IAM Role ARN for authenticated Identity Pool users"
+  value       = aws_iam_role.authenticated.arn
+}
+
+output "authenticated_role_name" {
+  description = "IAM Role name for authenticated Identity Pool users"
+  value       = aws_iam_role.authenticated.name
+}

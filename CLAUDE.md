@@ -1,6 +1,6 @@
 # Booking: Agent-First Vacation Rental Booking Platform
 
-Auto-generated from feature plans. Last updated: 2025-12-27
+Auto-generated from feature plans. Last updated: 2025-12-28
 
 ## Project Overview
 
@@ -28,6 +28,41 @@ An AI agent-driven vacation rental booking platform where the conversational age
 - **Auth**: AWS Cognito (passwordless email verification)
 - **Hosting**: S3 + CloudFront (frontend), AgentCore Runtime (backend)
 - **Region**: Configured per environment in `terraform.tfvars.json`
+
+## Research-First Rules
+
+### NON-NEGOTIABLE: Research Before Writing Custom Code
+
+**NEVER assume a library, SDK, or tool doesn't exist. ALWAYS verify first.**
+
+Before writing ANY custom integration code (especially for AWS services):
+
+1. **Use the AWS Documentation MCP server** (`mcp__aws-documentation__search_documentation`) to search for official SDKs and clients
+2. **Search npm/PyPI** for official packages (e.g., `@aws-sdk/client-*` for AWS services)
+3. **Check the AgentCore MCP server** (`mcp__agentcore__search_agentcore_docs`) for Bedrock AgentCore specifics
+
+**AWS SDK Client Naming Convention:**
+- AWS SDK v3 clients follow the pattern: `@aws-sdk/client-{service-name}`
+- Example: `@aws-sdk/client-bedrock-agentcore`, `@aws-sdk/client-dynamodb`
+- **ALWAYS check if a client exists before writing manual SigV4 signing or custom HTTP calls**
+
+**Research workflow:**
+```
+1. Identify the AWS service being used
+2. Search: mcp__aws-documentation__search_documentation(search_phrase="<service> SDK client")
+3. Check npm: npm search @aws-sdk/client-<service>
+4. Only if NO official client exists, consider custom implementation
+```
+
+**Violations of this rule waste significant time writing code that already exists.**
+
+### NON-NEGOTIABLE: Use Official SDKs Over Custom Code
+
+When an official SDK client exists:
+- **DO**: Use the SDK client with `fromCognitoIdentityPool` for credentials
+- **DON'T**: Write custom SigV4 signing code
+- **DON'T**: Write custom HTTP request builders
+- **DON'T**: Manually manage credentials when SDK handles it
 
 ## Infrastructure Rules
 
@@ -84,6 +119,25 @@ Use modules from [terraform-aws-modules](https://github.com/terraform-aws-module
 **NEVER run `terraform` or `terragrunt` commands directly. ALL commands via Taskfile.**
 
 If a `task tf:*` command fails, report the error to the user. Do NOT bypass with raw terraform.
+
+### Frontend Auto-Deploy via Terraform
+
+The `static-website` module automatically detects frontend source changes, builds, and deploys:
+
+**How it works:**
+- `terraform_data.frontend_build` hashes ALL frontend source files using `fileset()` + `sha256()`
+- Files watched: `src/**/*`, `public/**/*`, `*.{json,js,mjs,ts,cjs,yaml,yml}`
+- Generated directories (`node_modules/`, `.next/`, `out/`, `.yarn/`) are naturally excluded
+- When hash changes: runs `yarn install && yarn build`, then syncs to S3 and invalidates CloudFront
+
+**Usage:**
+```bash
+# After making frontend changes:
+task tf:plan:dev   # Shows frontend_build will be replaced if hash changed
+task tf:apply:dev  # Builds and deploys frontend automatically
+```
+
+**Note:** If `task tf:apply:dev` shows no changes after frontend modifications, the hash detection is working correctly and determined no source files changed.
 
 ## Critical Commands
 
@@ -210,6 +264,68 @@ Tools are Python functions with `@tool` decorator. Categories:
 - Server components by default (App Router)
 - Follow ESLint + Prettier config
 
+## Backend Patterns
+
+### DynamoDB Singleton Pattern (Performance)
+
+**All tools MUST use `get_dynamodb_service()` instead of instantiating `DynamoDBService` directly.**
+
+This avoids ~100-200ms boto3 re-instantiation overhead per tool call:
+
+```python
+from src.services.dynamodb import get_dynamodb_service
+
+def _get_db():
+    """Get shared DynamoDB service instance (singleton for performance)."""
+    return get_dynamodb_service()
+
+@tool
+def my_tool():
+    db = _get_db()  # ✅ Use singleton
+    # db = DynamoDBService()  # ❌ Never instantiate directly
+```
+
+### ToolError Standard Error Format
+
+**All tools MUST return `ToolError` for error conditions.**
+
+Standard error response format defined in `backend/src/models/errors.py`:
+
+```python
+from src.models.errors import ErrorCode, ToolError
+
+# Return structured error
+if not reservation:
+    error = ToolError.from_code(
+        ErrorCode.RESERVATION_NOT_FOUND,
+        details={"reservation_id": reservation_id},
+    )
+    return error.model_dump()  # Returns structured dict
+```
+
+**Error response structure:**
+```json
+{
+  "success": false,
+  "error_code": "ERR_006",
+  "message": "Reservation not found",
+  "recovery": "Ask guest to verify reservation ID",
+  "details": {"reservation_id": "RES-2025-ABC123"}
+}
+```
+
+**Standard error codes:**
+| Code | Name | When to Use |
+|------|------|-------------|
+| ERR_001 | DATES_UNAVAILABLE | Requested dates are booked/blocked |
+| ERR_002 | MINIMUM_NIGHTS_NOT_MET | Stay duration below seasonal minimum |
+| ERR_003 | MAX_GUESTS_EXCEEDED | More than 4 guests requested |
+| ERR_004 | VERIFICATION_REQUIRED | Booking attempted without verification |
+| ERR_005 | VERIFICATION_FAILED | Invalid/expired verification code |
+| ERR_006 | RESERVATION_NOT_FOUND | Reservation ID doesn't exist |
+| ERR_007 | UNAUTHORIZED | Guest can't modify this reservation |
+| ERR_008 | PAYMENT_FAILED | Payment processing error |
+
 ## Environment Variables
 
 ### Backend (.env)
@@ -225,11 +341,18 @@ LOG_LEVEL=INFO
 
 ### Frontend (.env.local)
 ```
-NEXT_PUBLIC_API_URL=http://localhost:3001/api
-NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-1_xxxxx
-NEXT_PUBLIC_COGNITO_CLIENT_ID=xxxxx
-NEXT_PUBLIC_COGNITO_REGION=us-east-1
+# AWS Region for SDK clients
+NEXT_PUBLIC_AWS_REGION=eu-west-1
+
+# Cognito Identity Pool for anonymous AWS credentials
+NEXT_PUBLIC_COGNITO_IDENTITY_POOL_ID=eu-west-1:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+# AgentCore Runtime ARN (full ARN, not just the ID)
+# Format: arn:aws:bedrock-agentcore:{region}:{account}:runtime/{id}
+NEXT_PUBLIC_AGENTCORE_RUNTIME_ARN=arn:aws:bedrock-agentcore:eu-west-1:123456789012:runtime/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
+
+**Note**: The frontend uses `@aws-sdk/client-bedrock-agentcore` with credentials from `@aws-sdk/credential-providers` (fromCognitoIdentityPool). No custom SigV4 signing required.
 
 ## Constitution Principles
 

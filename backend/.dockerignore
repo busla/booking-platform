@@ -27,6 +27,7 @@ htmlcov/
 # Development files
 tests/
 *.md
+!README.md
 .ruff_cache/
 
 # Environment

@@ -9,14 +9,17 @@
  * - Hidden on home page (where chat is the main interface)
  * - Maintains conversation state while navigating
  * - Accessible with keyboard navigation
+ *
+ * Uses native AI SDK v6 useChat hook with custom ChatTransport for direct
+ * browser-to-AgentCore communication (no API route needed for static export).
  */
 
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
-import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport } from 'ai'
+import { useChat, type UIMessage } from '@ai-sdk/react'
+import { getAgentCoreTransport } from '@/lib/agentcore-transport'
 import {
   Conversation,
   ConversationContent,
@@ -107,45 +110,39 @@ export function ChatWidget() {
   const [input, setInput] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // AI SDK v6 useChat hook - must be called before any conditional returns
-  const { messages, status, error, sendMessage } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-    }),
+  // Memoize transport to maintain session state across re-renders
+  const transport = useMemo(() => getAgentCoreTransport(), [])
+
+  // Native AI SDK v6 useChat with custom transport for AgentCore
+  const { messages, sendMessage, status, error } = useChat({
+    transport,
+    id: 'chat-widget', // Stable chat ID for session continuity
   })
 
   const isLoading = status === 'streaming' || status === 'submitted'
 
-  // Handle form submission
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault()
-      if (!input.trim() || isLoading) return
+  // Extract text from message parts (AI SDK v6 format)
+  const getMessageText = (message: UIMessage): string => {
+    // UIMessage has a parts array with typed parts
+    return message.parts
+      .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+      .map((part) => part.text)
+      .join('')
+  }
 
-      sendMessage({ text: input })
-      setInput('')
-      inputRef.current?.focus()
-    },
-    [input, isLoading, sendMessage]
-  )
-
-  // Handle input change
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  // Handle input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value)
-  }, [])
+  }
 
-  // Extract text from message parts (v6 format)
-  const getMessageText = (message: (typeof messages)[0]): string => {
-    if ('parts' in message && Array.isArray(message.parts)) {
-      return message.parts
-        .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
-        .map((part) => part.text)
-        .join('')
-    }
-    if ('content' in message && typeof message.content === 'string') {
-      return message.content
-    }
-    return ''
+  // Handle form submission using AI SDK's sendMessage
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim() || isLoading) return
+
+    sendMessage({ text: input })
+    setInput('')
+    inputRef.current?.focus()
   }
 
   // Focus input when panel opens
@@ -215,26 +212,30 @@ export function ChatWidget() {
                 />
               ) : (
                 <>
-                  {messages.map((message) => (
-                    <Message key={message.id} from={message.role as 'user' | 'assistant'}>
-                      <MessageContent>
-                        {message.role === 'assistant' ? (
-                          <MessageResponse>{getMessageText(message)}</MessageResponse>
-                        ) : (
-                          <span className="whitespace-pre-wrap">{getMessageText(message)}</span>
-                        )}
-                      </MessageContent>
-                    </Message>
-                  ))}
+                  {messages.map((message) => {
+                    const text = getMessageText(message)
+                    const isStreamingThisMessage =
+                      isLoading &&
+                      message.role === 'assistant' &&
+                      message.id === messages[messages.length - 1]?.id
 
-                  {/* Loading indicator */}
-                  {isLoading && messages[messages.length - 1]?.role === 'user' && (
-                    <Message from="assistant">
-                      <MessageContent>
-                        <MessageLoading />
-                      </MessageContent>
-                    </Message>
-                  )}
+                    return (
+                      <Message key={message.id} from={message.role as 'user' | 'assistant'}>
+                        <MessageContent>
+                          {message.role === 'assistant' ? (
+                            // Show loading indicator if streaming and no text yet
+                            !text && isStreamingThisMessage ? (
+                              <MessageLoading />
+                            ) : (
+                              <MessageResponse>{text}</MessageResponse>
+                            )
+                          ) : (
+                            <span className="whitespace-pre-wrap">{text}</span>
+                          )}
+                        </MessageContent>
+                      </Message>
+                    )
+                  })}
                 </>
               )}
             </ConversationContent>
@@ -249,7 +250,7 @@ export function ChatWidget() {
 
           {/* Input Area */}
           <div className="chat-widget-input">
-            <Input onSubmit={handleSubmit}>
+            <Input onSubmit={onSubmit}>
               <PromptInputWrapper>
                 <PromptInputTextarea
                   ref={inputRef}
