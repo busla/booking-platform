@@ -1,50 +1,166 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           SYNC IMPACT REPORT                                  ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Version Change: 1.0.0 → 1.1.0 (Technology Stack principles added)            ║
+║                                                                              ║
+║ Modified Principles:                                                         ║
+║   - None (existing principles unchanged)                                     ║
+║                                                                              ║
+║ Added Sections:                                                              ║
+║   - VI. Technology Stack (NON-NEGOTIABLE)                                    ║
+║     - Frontend Agent Development                                             ║
+║     - Backend Agent Development                                              ║
+║     - Infrastructure                                                         ║
+║                                                                              ║
+║ Removed Sections:                                                            ║
+║   - None                                                                     ║
+║                                                                              ║
+║ Templates Status:                                                            ║
+║   - .specify/templates/plan-template.md        ✅ Compatible (no changes)    ║
+║   - .specify/templates/spec-template.md        ✅ Compatible (no changes)    ║
+║   - .specify/templates/tasks-template.md       ✅ Compatible (no changes)    ║
+║                                                                              ║
+║ Deferred TODOs:                                                              ║
+║   - None                                                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
+
+# Summerhouse Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Test-First Development (NON-NEGOTIABLE)
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+All features MUST follow Test-Driven Development (TDD):
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+- Tests MUST be written before implementation code
+- Tests MUST fail before implementation begins (Red phase)
+- Implementation MUST only satisfy failing tests (Green phase)
+- Refactoring MUST NOT change test outcomes (Refactor phase)
+- No feature is considered complete until tests pass
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+**Rationale**: TDD ensures correctness by design, prevents regression, and produces
+naturally testable architecture. Skipping this principle creates technical debt that
+compounds over time.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### II. Simplicity & YAGNI
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Code MUST be the simplest solution that satisfies current requirements:
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- MUST NOT add features "for future use" without explicit specification
+- MUST prefer direct solutions over abstractions until patterns emerge (Rule of Three)
+- MUST delete unused code rather than commenting it out
+- SHOULD choose boring technology over novel solutions unless requirements demand otherwise
+- MUST justify any abstraction layer with concrete current use cases
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+**Rationale**: Premature complexity is the enemy of delivery. Simple code is easier to
+understand, test, modify, and delete.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### III. Type Safety
+
+All code MUST leverage the type system to prevent errors at compile/lint time:
+
+- MUST use strict type checking (e.g., `strict: true` in TypeScript, type hints in Python)
+- MUST NOT use `any`, `unknown` escape hatches without documented justification
+- MUST validate external inputs at system boundaries and convert to typed representations
+- MUST define explicit types for function parameters and return values
+- SHOULD use discriminated unions/enums over stringly-typed values
+
+**Rationale**: The type system catches errors before runtime, serves as executable
+documentation, and enables confident refactoring.
+
+### IV. Observability
+
+All systems MUST be observable in development and production:
+
+- MUST use structured logging (JSON format) with consistent field names
+- MUST include correlation IDs for request tracing across boundaries
+- MUST log all error conditions with sufficient context for debugging
+- MUST expose health check endpoints for any network service
+- SHOULD instrument critical paths with timing metrics
+- MUST NOT log sensitive data (credentials, PII, tokens)
+
+**Rationale**: You cannot fix what you cannot see. Observability transforms debugging
+from guesswork into systematic investigation.
+
+### V. Incremental Delivery
+
+Features MUST be delivered in small, independently valuable increments:
+
+- MUST break features into user stories that can be tested independently
+- MUST ensure each increment is deployable without breaking existing functionality
+- MUST prioritize working software over comprehensive features
+- SHOULD target increments that can be completed within one development session
+- MUST NOT block delivery waiting for "complete" implementations
+
+**Rationale**: Small increments reduce risk, enable faster feedback, and maintain
+momentum. Shipping something useful beats planning something perfect.
+
+### VI. Technology Stack (NON-NEGOTIABLE)
+
+All development MUST use the prescribed technology stack for consistency and
+maintainability across the project:
+
+**Frontend Agent Development**
+
+- MUST use Vercel AI SDK v6 (ai-sdk) for AI/LLM integration
+- MUST use ai-elements package for agent UI components
+- MUST NOT use alternative AI SDK libraries without documented justification and
+  amendment to this constitution
+
+**Backend Agent Development**
+
+- MUST use Strands agent framework for all agent backend development
+- MUST follow Strands patterns for tool definition, agent orchestration, and
+  conversation management
+- MUST NOT implement custom agent frameworks when Strands provides the capability
+
+**Infrastructure**
+
+- MUST use the `terraform-aws-agentcore` module located at
+  `~/code/apro/agentcore-sandbox/terraform-aws-agentcore` for all AWS infrastructure
+- MUST NOT create ad-hoc Terraform resources that duplicate module functionality
+- Infrastructure changes MUST be made through the module or by extending it
+
+**Rationale**: A consistent technology stack reduces cognitive load, enables knowledge
+sharing, and prevents fragmentation. These specific choices align with the agent-first
+architecture and AWS deployment target of the Summerhouse platform.
+
+## Quality Standards
+
+Code quality gates that MUST pass before any merge:
+
+- All tests pass (unit, integration, contract as applicable)
+- Type checking passes with no errors
+- Linting passes with no errors or warnings
+- No decrease in test coverage without justification
+- Documentation updated for any public API changes
+
+## Development Workflow
+
+Standard workflow enforcing constitution compliance:
+
+1. **Specification**: Define user stories with acceptance criteria (spec.md)
+2. **Planning**: Design approach with constitution check (plan.md)
+3. **Test Writing**: Write failing tests for acceptance criteria
+4. **Implementation**: Write minimal code to pass tests
+5. **Refactoring**: Improve code while maintaining passing tests
+6. **Review**: Verify compliance with all principles before merge
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution is the supreme authority for development practices in Summerhouse:
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+- **Supremacy**: Constitution principles override all other guidelines, preferences,
+  or conventions when in conflict
+- **Amendments**: Changes require documented rationale, review, and version increment
+- **Versioning**: Follows semantic versioning (MAJOR.MINOR.PATCH)
+  - MAJOR: Principle removal or incompatible redefinition
+  - MINOR: New principle or section added
+  - PATCH: Clarifications or wording improvements
+- **Compliance**: All code reviews MUST verify constitution compliance
+- **Exceptions**: Any principle violation MUST be documented with justification in the
+  Complexity Tracking section of the relevant plan.md
+
+**Version**: 1.1.0 | **Ratified**: 2025-12-27 | **Last Amended**: 2025-12-27

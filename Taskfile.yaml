@@ -1,0 +1,278 @@
+# https://taskfile.dev
+# Summerhouse Booking Platform - Task Runner
+#
+# IMPORTANT: All Terraform commands MUST be run via this Taskfile.
+# Syntax: task tf:<action>:<env>
+# Examples: task tf:init:dev, task tf:plan:prod, task tf:apply:dev
+version: "3"
+
+vars:
+  AWS_REGION: us-east-1
+  TF_DIR: infrastructure
+
+tasks:
+  # ============================================================================
+  # Terraform Commands (tf:<action>:<env>)
+  # ============================================================================
+
+  # DEV Environment
+  tf:init:dev:
+    desc: Initialize Terraform for dev environment
+    cmds:
+      - task: _tf:init
+        vars: { ENV: dev }
+
+  tf:plan:dev:
+    desc: Plan Terraform changes for dev environment
+    cmds:
+      - task: _tf:plan
+        vars: { ENV: dev }
+
+  tf:apply:dev:
+    desc: Apply Terraform changes for dev environment
+    cmds:
+      - task: _tf:apply
+        vars: { ENV: dev }
+
+  tf:destroy:dev:
+    desc: Destroy Terraform resources for dev environment (use with caution)
+    cmds:
+      - task: _tf:destroy
+        vars: { ENV: dev }
+
+  tf:output:dev:
+    desc: Show Terraform outputs for dev environment
+    cmds:
+      - task: _tf:output
+        vars: { ENV: dev }
+
+  # PROD Environment
+  tf:init:prod:
+    desc: Initialize Terraform for prod environment
+    cmds:
+      - task: _tf:init
+        vars: { ENV: prod }
+
+  tf:plan:prod:
+    desc: Plan Terraform changes for prod environment
+    cmds:
+      - task: _tf:plan
+        vars: { ENV: prod }
+
+  tf:apply:prod:
+    desc: Apply Terraform changes for prod environment
+    cmds:
+      - task: _tf:apply
+        vars: { ENV: prod }
+
+  tf:destroy:prod:
+    desc: Destroy Terraform resources for prod environment (use with caution)
+    cmds:
+      - task: _tf:destroy
+        vars: { ENV: prod }
+
+  tf:output:prod:
+    desc: Show Terraform outputs for prod environment
+    cmds:
+      - task: _tf:output
+        vars: { ENV: prod }
+
+  # Common Terraform Tasks
+  tf:fmt:
+    desc: Format Terraform files
+    dir: "{{.TF_DIR}}"
+    cmds:
+      - terraform fmt -recursive
+
+  tf:validate:
+    desc: Validate Terraform configuration
+    dir: "{{.TF_DIR}}"
+    cmds:
+      - terraform validate
+
+  # ============================================================================
+  # Backend Commands
+  # ============================================================================
+
+  backend:install:
+    desc: Install backend Python dependencies with uv
+    dir: backend
+    cmds:
+      - uv venv
+      - uv pip install -e ".[dev]"
+
+  backend:dev:
+    desc: Run backend in development mode
+    dir: backend
+    cmds:
+      - source .venv/bin/activate && python -m uvicorn src.api:app --reload --port 3001
+
+  backend:test:
+    desc: Run backend tests
+    dir: backend
+    cmds:
+      - source .venv/bin/activate && pytest
+
+  backend:test:coverage:
+    desc: Run backend tests with coverage
+    dir: backend
+    cmds:
+      - source .venv/bin/activate && pytest --cov=src --cov-report=html
+
+  backend:lint:
+    desc: Lint backend code
+    dir: backend
+    cmds:
+      - source .venv/bin/activate && ruff check src tests
+
+  backend:typecheck:
+    desc: Type check backend code
+    dir: backend
+    cmds:
+      - source .venv/bin/activate && mypy src
+
+  # ============================================================================
+  # Frontend Commands
+  # ============================================================================
+
+  frontend:install:
+    desc: Install frontend dependencies with Yarn Berry
+    dir: frontend
+    cmds:
+      - yarn install
+
+  frontend:dev:
+    desc: Run frontend in development mode
+    dir: frontend
+    cmds:
+      - yarn dev
+
+  frontend:build:
+    desc: Build frontend for production
+    dir: frontend
+    cmds:
+      - yarn build
+
+  frontend:test:
+    desc: Run frontend unit tests
+    dir: frontend
+    cmds:
+      - yarn test
+
+  frontend:test:e2e:
+    desc: Run frontend E2E tests
+    dir: frontend
+    cmds:
+      - yarn test:e2e
+
+  frontend:lint:
+    desc: Lint frontend code
+    dir: frontend
+    cmds:
+      - yarn lint
+
+  # ============================================================================
+  # Combined Commands
+  # ============================================================================
+
+  install:
+    desc: Install all dependencies (backend + frontend)
+    cmds:
+      - task: backend:install
+      - task: frontend:install
+
+  dev:
+    desc: Start development servers (backend + frontend)
+    deps:
+      - backend:dev
+      - frontend:dev
+
+  test:
+    desc: Run all tests
+    cmds:
+      - task: backend:test
+      - task: frontend:test
+
+  lint:
+    desc: Lint all code
+    cmds:
+      - task: backend:lint
+      - task: frontend:lint
+
+  # ============================================================================
+  # Type Generation
+  # ============================================================================
+
+  types:generate:
+    desc: Generate TypeScript types from backend Pydantic models
+    dir: backend
+    cmds:
+      - source .venv/bin/activate && python scripts/generate_types.py
+
+  # ============================================================================
+  # Data Seeding
+  # ============================================================================
+
+  seed:dev:
+    desc: Seed development database with test data
+    dir: backend
+    cmds:
+      - source .venv/bin/activate && python scripts/seed_data.py --env dev
+
+  seed:prod:
+    desc: Seed production database (use with caution)
+    dir: backend
+    cmds:
+      - source .venv/bin/activate && python scripts/seed_data.py --env prod
+
+  # ============================================================================
+  # Internal Tasks (reusable templates)
+  # ============================================================================
+
+  _tf:init:
+    internal: true
+    dir: "{{.TF_DIR}}"
+    env:
+      TF_DATA_DIR: "{{.ROOT_DIR}}/{{.TF_DIR}}/.terraform-{{.ENV}}"
+      AWS_REGION: "{{.AWS_REGION}}"
+    cmds:
+      - |
+        terraform init \
+          -backend-config=environments/{{.ENV}}-backend.config \
+          -reconfigure
+
+  _tf:plan:
+    internal: true
+    dir: "{{.TF_DIR}}"
+    env:
+      TF_DATA_DIR: "{{.ROOT_DIR}}/{{.TF_DIR}}/.terraform-{{.ENV}}"
+      AWS_REGION: "{{.AWS_REGION}}"
+    cmds:
+      - terraform plan -var-file=environments/{{.ENV}}.tfvars
+
+  _tf:apply:
+    internal: true
+    dir: "{{.TF_DIR}}"
+    env:
+      TF_DATA_DIR: "{{.ROOT_DIR}}/{{.TF_DIR}}/.terraform-{{.ENV}}"
+      AWS_REGION: "{{.AWS_REGION}}"
+    cmds:
+      - terraform apply -var-file=environments/{{.ENV}}.tfvars -auto-approve
+
+  _tf:destroy:
+    internal: true
+    dir: "{{.TF_DIR}}"
+    env:
+      TF_DATA_DIR: "{{.ROOT_DIR}}/{{.TF_DIR}}/.terraform-{{.ENV}}"
+      AWS_REGION: "{{.AWS_REGION}}"
+    cmds:
+      - terraform destroy -var-file=environments/{{.ENV}}.tfvars
+
+  _tf:output:
+    internal: true
+    dir: "{{.TF_DIR}}"
+    env:
+      TF_DATA_DIR: "{{.ROOT_DIR}}/{{.TF_DIR}}/.terraform-{{.ENV}}"
+      AWS_REGION: "{{.AWS_REGION}}"
+    cmds:
+      - terraform output {{.CLI_ARGS}}

@@ -1,0 +1,26 @@
+# Summerhouse Backend - AgentCore Runtime Container
+# Platform: linux/arm64 (required by AgentCore Runtime)
+
+FROM --platform=linux/arm64 ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+
+WORKDIR /app
+
+# Copy dependency files first for better caching
+COPY pyproject.toml uv.lock ./
+
+# Install production dependencies only (no dev deps)
+RUN uv sync --frozen --no-cache --no-dev
+
+# Copy source code
+COPY src/ ./src/
+
+# Expose the standard AgentCore Runtime port
+EXPOSE 8080
+
+# Health check for container orchestration
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/ping || exit 1
+
+# Run the AgentCore entrypoint
+# Using opentelemetry-instrument for observability when ADOT is configured
+CMD ["uv", "run", "python", "-m", "src.agent_app"]

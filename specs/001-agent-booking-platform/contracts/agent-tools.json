@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Summerhouse Agent Tool Definitions",
+  "description": "Strands @tool decorator definitions mapping to MCP tools",
+  "version": "1.0.0",
+  "metadata": {
+    "framework": "strands-agents",
+    "python_version": "3.12+",
+    "deployment": "aws-agentcore-runtime",
+    "tool_pattern": "strands-native",
+    "notes": "Tools implemented as Python functions with @tool decorator. Schemas auto-generate from docstrings and type hints. This file documents tool interfaces and module organization."
+  },
+  "tool_modules": {
+    "availability": {
+      "file": "backend/src/tools/availability.py",
+      "tools": ["check_availability", "get_calendar"],
+      "dependencies": ["boto3", "datetime"],
+      "dynamodb_tables": ["summerhouse-{env}-availability"]
+    },
+    "pricing": {
+      "file": "backend/src/tools/pricing.py",
+      "tools": ["get_pricing", "calculate_total"],
+      "dependencies": ["boto3", "datetime", "decimal"],
+      "dynamodb_tables": ["summerhouse-{env}-pricing"]
+    },
+    "reservations": {
+      "file": "backend/src/tools/reservations.py",
+      "tools": ["create_reservation", "get_reservation", "cancel_reservation", "modify_reservation"],
+      "dependencies": ["boto3", "uuid", "datetime"],
+      "dynamodb_tables": [
+        "summerhouse-{env}-reservations",
+        "summerhouse-{env}-availability",
+        "summerhouse-{env}-guests"
+      ]
+    },
+    "payments": {
+      "file": "backend/src/tools/payments.py",
+      "tools": ["process_payment"],
+      "dependencies": ["boto3", "uuid"],
+      "dynamodb_tables": [
+        "summerhouse-{env}-payments",
+        "summerhouse-{env}-reservations"
+      ],
+      "notes": "MVP uses mock payment provider - always succeeds"
+    },
+    "property": {
+      "file": "backend/src/tools/property.py",
+      "tools": ["get_property_details", "get_photos"],
+      "dependencies": ["boto3"],
+      "data_source": "S3 bucket or DynamoDB (static content)"
+    },
+    "area_info": {
+      "file": "backend/src/tools/area_info.py",
+      "tools": ["get_area_info", "get_recommendations"],
+      "dependencies": ["boto3"],
+      "data_source": "S3 bucket or DynamoDB (static content)"
+    },
+    "guest": {
+      "file": "backend/src/tools/guest.py",
+      "tools": ["initiate_verification", "verify_code", "get_guest_info"],
+      "dependencies": ["boto3", "aws-cognito-identity-provider"],
+      "dynamodb_tables": [
+        "summerhouse-{env}-guests",
+        "summerhouse-{env}-verification-codes"
+      ],
+      "cognito_resources": [
+        "user_pool_id",
+        "user_pool_client_id"
+      ]
+    }
+  },
+  "strands_decorators": {
+    "example_tool_definition": {
+      "description": "Example of how tools are defined using Strands @tool decorator with Pydantic v2 contracts",
+      "code": "from pydantic import BaseModel, ConfigDict\nfrom datetime import date\n\nclass CheckAvailabilityInput(BaseModel):\n    model_config = ConfigDict(strict=True)\n    check_in: date\n    check_out: date\n\nclass CheckAvailabilityResult(BaseModel):\n    model_config = ConfigDict(strict=True)\n    available: bool\n    nights: int\n    conflict_dates: list[date]\n\n@tool\ndef check_availability(input: CheckAvailabilityInput) -> CheckAvailabilityResult:\n    \"\"\"\n    Check if the apartment is available for the specified date range.\n    \n    Args:\n        input: Check-in and check-out dates\n    \n    Returns:\n        Availability result with conflict dates if any\n    \"\"\"\n    # Implementation here\n    pass"
+    }
+  },
+  "agent_configuration": {
+    "model_id": "anthropic.claude-sonnet-4-20250514",
+    "system_prompt_location": "backend/src/agent/prompts/system_prompt.md",
+    "conversation_manager": "SlidingWindowConversationManager",
+    "conversation_window_size": 20,
+    "tools_registration": "All tools from tool_modules are registered with the agent"
+  },
+  "tool_categories": {
+    "inquiry": {
+      "description": "Tools for answering guest questions (no side effects). Public tools work without auth; personal data tools (get_guest_info, get_reservation) use session-bound guest_id.",
+      "tools": [
+        "check_availability",
+        "get_calendar",
+        "get_pricing",
+        "calculate_total",
+        "get_property_details",
+        "get_photos",
+        "get_area_info",
+        "get_recommendations",
+        "get_guest_info",
+        "get_reservation"
+      ],
+      "public_tools": ["check_availability", "get_calendar", "get_pricing", "calculate_total", "get_property_details", "get_photos", "get_area_info", "get_recommendations"],
+      "session_bound_tools": ["get_guest_info", "get_reservation"]
+    },
+    "booking": {
+      "description": "Tools that create or modify bookings (require verification). All tools use session-bound guest_id - agent cannot specify guest_id.",
+      "tools": [
+        "create_reservation",
+        "modify_reservation",
+        "cancel_reservation",
+        "process_payment"
+      ],
+      "precondition": "Guest must be verified (session has valid guest_id from Cognito)",
+      "authorization": "guest_id automatically injected from session; tools only affect data owned by session's guest"
+    },
+    "verification": {
+      "description": "Tools for guest identity verification",
+      "tools": [
+        "initiate_verification",
+        "verify_code"
+      ]
+    }
+  },
+  "error_handling": {
+    "standard_errors": {
+      "DATES_UNAVAILABLE": {
+        "code": "ERR_001",
+        "message": "The requested dates are not available",
+        "recovery": "Suggest alternative dates using get_calendar"
+      },
+      "MINIMUM_NIGHTS_NOT_MET": {
+        "code": "ERR_002",
+        "message": "Minimum stay requirement not met for this season",
+        "recovery": "Inform guest of minimum nights and suggest extending stay"
+      },
+      "MAX_GUESTS_EXCEEDED": {
+        "code": "ERR_003",
+        "message": "Number of guests exceeds maximum capacity (4)",
+        "recovery": "Inform guest of max capacity"
+      },
+      "VERIFICATION_REQUIRED": {
+        "code": "ERR_004",
+        "message": "Guest verification required before booking",
+        "recovery": "Initiate verification flow with initiate_verification"
+      },
+      "VERIFICATION_FAILED": {
+        "code": "ERR_005",
+        "message": "Verification code invalid or expired",
+        "recovery": "Offer to resend verification code"
+      },
+      "RESERVATION_NOT_FOUND": {
+        "code": "ERR_006",
+        "message": "Reservation not found",
+        "recovery": "Ask guest to verify reservation ID"
+      },
+      "UNAUTHORIZED": {
+        "code": "ERR_007",
+        "message": "Guest not authorized for this action",
+        "recovery": "Verify guest owns the reservation"
+      },
+      "PAYMENT_FAILED": {
+        "code": "ERR_008",
+        "message": "Payment processing failed",
+        "recovery": "Suggest trying again or different payment method"
+      }
+    }
+  },
+  "rich_content_types": {
+    "description": "Content types the agent can return for frontend rendering",
+    "types": {
+      "availability_calendar": {
+        "tool": "get_calendar",
+        "frontend_component": "AvailabilityCalendar",
+        "description": "Interactive calendar showing available/booked dates"
+      },
+      "photo_gallery": {
+        "tool": "get_photos",
+        "frontend_component": "PhotoGallery",
+        "description": "Carousel/grid of property photos"
+      },
+      "booking_summary": {
+        "tool": "calculate_total",
+        "frontend_component": "BookingSummaryCard",
+        "description": "Price breakdown with dates and guest count"
+      },
+      "reservation_confirmation": {
+        "tool": "create_reservation",
+        "frontend_component": "BookingSummaryCard",
+        "description": "Confirmed booking details"
+      },
+      "verification_input": {
+        "tool": "initiate_verification",
+        "frontend_component": "VerificationCodeInput",
+        "description": "6-digit code input field"
+      }
+    }
+  }
+}

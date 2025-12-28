@@ -1,0 +1,468 @@
+openapi: 3.1.0
+info:
+  title: Summerhouse Booking API
+  description: |
+    REST API for the Summerhouse vacation rental booking platform.
+
+    This API primarily serves the frontend chat interface and provides:
+    - Chat endpoint for agent conversations (streaming via Vercel AI SDK)
+    - Health check endpoint
+    - Static content retrieval (property info, photos)
+
+    Most booking operations happen through the agent via MCP tools.
+    Direct API access is limited to supporting the chat interface.
+  version: 1.0.0
+  contact:
+    name: Summerhouse API Support
+    email: support@summerhouse.example
+
+servers:
+  - url: https://api.summerhouse.example/v1
+    description: Production server
+  - url: https://api-dev.summerhouse.example/v1
+    description: Development server
+  - url: http://localhost:3001/api
+    description: Local development
+
+tags:
+  - name: Chat
+    description: Agent conversation endpoints
+  - name: Health
+    description: Health check endpoints
+  - name: Property
+    description: Static property information
+  - name: Auth
+    description: Authentication endpoints (Cognito integration)
+
+paths:
+  /chat:
+    post:
+      tags:
+        - Chat
+      summary: Send message to booking agent
+      description: |
+        Stream a conversation with the Summerhouse booking agent.
+        Uses Vercel AI SDK streaming protocol.
+
+        The agent can:
+        - Answer questions about the property
+        - Check availability and pricing
+        - Guide guests through booking
+        - Handle email verification
+        - Process reservations
+      operationId: chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Streaming response from agent
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-Sent Events stream following Vercel AI SDK protocol
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Returns the health status of the API and its dependencies
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /property:
+    get:
+      tags:
+        - Property
+      summary: Get property details
+      description: Returns static information about the apartment
+      operationId: getProperty
+      responses:
+        '200':
+          description: Property details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+
+  /property/photos:
+    get:
+      tags:
+        - Property
+      summary: Get property photos
+      description: Returns list of property photos with URLs
+      operationId: getPhotos
+      parameters:
+        - name: category
+          in: query
+          description: Filter photos by category
+          schema:
+            type: string
+            enum: [all, bedroom, living_room, kitchen, bathroom, exterior, pool]
+            default: all
+      responses:
+        '200':
+          description: List of photos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoList'
+
+  /property/pricing:
+    get:
+      tags:
+        - Property
+      summary: Get pricing information
+      description: Returns seasonal pricing information
+      operationId: getPricing
+      responses:
+        '200':
+          description: Pricing information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingInfo'
+
+  /auth/initiate:
+    post:
+      tags:
+        - Auth
+      summary: Initiate passwordless authentication
+      description: |
+        Starts the passwordless email verification flow.
+        Sends a 6-digit code to the provided email address.
+        Uses Cognito custom challenge flow.
+      operationId: initiateAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateAuthRequest'
+      responses:
+        '200':
+          description: Verification code sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitiateAuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /auth/verify:
+    post:
+      tags:
+        - Auth
+      summary: Verify authentication code
+      description: |
+        Verifies the 6-digit code and completes authentication.
+        Returns Cognito tokens on success.
+      operationId: verifyAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyAuthRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyAuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Invalid or expired code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - messages
+      properties:
+        messages:
+          type: array
+          description: Conversation history
+          items:
+            $ref: '#/components/schemas/Message'
+        sessionId:
+          type: string
+          format: uuid
+          description: Optional session ID for conversation continuity
+        guestId:
+          type: string
+          description: Verified guest ID (if authenticated)
+
+    Message:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        id:
+          type: string
+          description: Unique message ID
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+          description: Message content
+        createdAt:
+          type: string
+          format: date-time
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+          description: API version
+        dependencies:
+          type: object
+          properties:
+            dynamodb:
+              type: string
+              enum: [healthy, unhealthy]
+            cognito:
+              type: string
+              enum: [healthy, unhealthy]
+            agentcore:
+              type: string
+              enum: [healthy, unhealthy]
+
+    Property:
+      type: object
+      properties:
+        propertyId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        address:
+          type: object
+          properties:
+            city:
+              type: string
+            region:
+              type: string
+            country:
+              type: string
+        bedrooms:
+          type: integer
+        bathrooms:
+          type: integer
+        maxGuests:
+          type: integer
+        amenities:
+          type: array
+          items:
+            type: string
+        checkInTime:
+          type: string
+          example: "15:00"
+        checkOutTime:
+          type: string
+          example: "10:00"
+        houseRules:
+          type: array
+          items:
+            type: string
+
+    PhotoList:
+      type: object
+      properties:
+        photos:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              url:
+                type: string
+                format: uri
+              caption:
+                type: string
+              category:
+                type: string
+        totalCount:
+          type: integer
+
+    PricingInfo:
+      type: object
+      properties:
+        currency:
+          type: string
+          example: EUR
+        seasons:
+          type: array
+          items:
+            type: object
+            properties:
+              seasonName:
+                type: string
+              startDate:
+                type: string
+                format: date
+              endDate:
+                type: string
+                format: date
+              nightlyRateEur:
+                type: number
+              minimumNights:
+                type: integer
+              cleaningFeeEur:
+                type: number
+
+    InitiateAuthRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        preferredLanguage:
+          type: string
+          enum: [en, es]
+          default: en
+
+    InitiateAuthResponse:
+      type: object
+      properties:
+        session:
+          type: string
+          description: Cognito session token for verification step
+        emailMasked:
+          type: string
+          description: Masked email address (e.g., j***@example.com)
+        expiresInMinutes:
+          type: integer
+          description: Code expiration time
+
+    VerifyAuthRequest:
+      type: object
+      required:
+        - session
+        - code
+      properties:
+        session:
+          type: string
+          description: Session from initiate response
+        code:
+          type: string
+          pattern: '^[0-9]{6}$'
+          description: 6-digit verification code
+
+    VerifyAuthResponse:
+      type: object
+      properties:
+        guestId:
+          type: string
+          description: Verified guest ID
+        accessToken:
+          type: string
+          description: Cognito access token
+        idToken:
+          type: string
+          description: Cognito ID token
+        refreshToken:
+          type: string
+          description: Cognito refresh token
+        expiresIn:
+          type: integer
+          description: Token expiration in seconds
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    RateLimited:
+      description: Too many requests
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retry
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    cognitoAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito ID token
+
+security: []
