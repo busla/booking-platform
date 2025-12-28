@@ -24,8 +24,8 @@ def reset_property_data() -> None:
 def sample_property_data() -> dict:
     """Create sample property data."""
     return {
-        "property_id": "summerhouse-quesada",
-        "name": "Summerhouse Quesada",
+        "property_id": "booking-quesada",
+        "name": "Quesada Apartment",
         "description": "Beautiful vacation apartment in Costa Blanca",
         "address": {
             "street": "Calle del Sol 45",
@@ -88,7 +88,7 @@ class TestPropertyModel:
         prop = get_property_data_store()
 
         assert prop is not None
-        assert prop.name == "Summerhouse Quesada"
+        assert prop.name == "Quesada Apartment"
         assert prop.bedrooms == 2
         assert prop.max_guests == 4
 
@@ -147,7 +147,7 @@ class TestGetPropertyDetails:
 
         result = get_property_details()
 
-        assert result["property"]["name"] == "Summerhouse Quesada"
+        assert result["property"]["name"] == "Quesada Apartment"
 
     def test_returns_bedroom_count(self, sample_property_data: dict) -> None:
         """Should include number of bedrooms."""

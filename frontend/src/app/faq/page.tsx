@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'FAQ | Summerhouse Quesada',
-  description: 'Frequently asked questions about booking and staying at Summerhouse Quesada vacation rental in Costa Blanca, Spain.',
+  title: 'FAQ | Quesada Apartment',
+  description: 'Frequently asked questions about booking and staying at Quesada Apartment vacation rental in Costa Blanca, Spain.',
 };
 
 const faqSections = [
@@ -144,7 +144,7 @@ export default function FAQPage() {
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Frequently Asked Questions</h1>
 
       <p className="text-gray-600 mb-8">
-        Find answers to common questions about Summerhouse Quesada. If you can&apos;t find
+        Find answers to common questions about Quesada Apartment. If you can&apos;t find
         what you&apos;re looking for, feel free to ask our AI assistant on the homepage -
         it&apos;s happy to help!
       </p>

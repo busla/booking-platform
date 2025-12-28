@@ -26,7 +26,7 @@
 **Purpose**: Project initialization and basic structure
 
 - [X] T001 Create project directory structure per plan.md (backend/, frontend/, infrastructure/)
-- [X] T001a [P] Adapt Taskfile.yaml for Summerhouse with syntax `task tf:<action>:<env>` (e.g., tf:init:dev, tf:plan:prod). ALL terraform commands MUST use Taskfile
+- [X] T001a [P] Adapt Taskfile.yaml for Booking with syntax `task tf:<action>:<env>` (e.g., tf:init:dev, tf:plan:prod). ALL terraform commands MUST use Taskfile
 - [X] T001b [P] Initialize frontend with Yarn Berry: `yarn init -2`, configure `.yarnrc.yml` with `nodeLinker: node-modules`
 - [X] T002 [P] Initialize Python backend with pyproject.toml (strands-agents, boto3, pydantic v2)
 - [X] T003 [P] Initialize Next.js 14 frontend with package.json (ai, react 18, typescript strict) using Yarn Berry
@@ -55,12 +55,12 @@
 
 ### 2B: DynamoDB Tables (per data-model.md)
 
-- [X] T012 [P] [FOUND] Add DynamoDB table: summerhouse-reservations in infrastructure/dynamodb.tf
-- [X] T013 [P] [FOUND] Add DynamoDB table: summerhouse-guests in infrastructure/dynamodb.tf
-- [X] T014 [P] [FOUND] Add DynamoDB table: summerhouse-availability in infrastructure/dynamodb.tf
-- [X] T015 [P] [FOUND] Add DynamoDB table: summerhouse-pricing in infrastructure/dynamodb.tf
-- [X] T016 [P] [FOUND] Add DynamoDB table: summerhouse-payments in infrastructure/dynamodb.tf
-- [X] T017 [P] [FOUND] Add DynamoDB table: summerhouse-verification-codes in infrastructure/dynamodb.tf
+- [X] T012 [P] [FOUND] Add DynamoDB table: booking-reservations in infrastructure/dynamodb.tf
+- [X] T013 [P] [FOUND] Add DynamoDB table: booking-guests in infrastructure/dynamodb.tf
+- [X] T014 [P] [FOUND] Add DynamoDB table: booking-availability in infrastructure/dynamodb.tf
+- [X] T015 [P] [FOUND] Add DynamoDB table: booking-pricing in infrastructure/dynamodb.tf
+- [X] T016 [P] [FOUND] Add DynamoDB table: booking-payments in infrastructure/dynamodb.tf
+- [X] T017 [P] [FOUND] Add DynamoDB table: booking-verification-codes in infrastructure/dynamodb.tf
 
 ### 2C: Backend Pydantic Models (per data-model.md, FR-043)
 
@@ -285,7 +285,7 @@
 
 ### 8A: Tests for US6
 
-- [ ] T102 [US6] E2E tests for static page navigation in frontend/tests/e2e/static-pages.spec.ts
+- [X] T102 [US6] E2E tests for static page navigation in frontend/tests/e2e/static-pages.spec.ts
 
 ### 8B: Static Pages (US6)
 
@@ -298,7 +298,7 @@
 
 ### 8C: Persistent Agent Access (US6 - FR-037)
 
-- [ ] T109 [US6] Add persistent agent chat widget to all pages in frontend/src/components/layout/
+- [X] T109 [US6] Add persistent agent chat widget to all pages in frontend/src/components/layout/
 
 **Checkpoint**: US6 complete - all static pages available with agent accessible from each
 
@@ -308,7 +308,7 @@
 
 **Purpose**: Improvements affecting multiple user stories
 
-- [ ] T110 [P] Add multilingual support (English/Spanish) to system prompt (FR-005)
+- [X] T110 [P] Add multilingual support (English/Spanish) to system prompt (FR-005)
 - [ ] T111 [P] Implement error handling with standard error codes from agent-tools.json
 - [ ] T112 [P] Add structured logging across all tools
 - [ ] T113 [P] Create API health check endpoint in backend/src/api/health.py
@@ -386,5 +386,5 @@ All user stories depend on Phase 2 (Foundational) completion:
 
 **Prerequisite Alerts**:
 - Task T006a requires SES domain/email identity verification in AWS console before Cognito passwordless can send verification emails.
-- Task T069 requires the `cognito-passwordless` module to exist in `terraform-aws-agentcore/modules/`. This module must be created before Summerhouse infrastructure deployment.
+- Task T069 requires the `cognito-passwordless` module to exist in `terraform-aws-agentcore/modules/`. This module must be created before Booking infrastructure deployment.
 - Task T007a requires the `static-website` module to exist in `terraform-aws-agentcore/modules/`. This module must be created before frontend deployment.

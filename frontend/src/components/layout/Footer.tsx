@@ -16,7 +16,7 @@ export function Footer({ minimal = false }: FooterProps) {
     return (
       <footer className="footer footer-minimal">
         <p className="footer-copyright">
-          © {currentYear} Summerhouse. All rights reserved.
+          © {currentYear} Quesada Apartment. All rights reserved.
         </p>
 
         <style jsx>{`
@@ -42,7 +42,7 @@ export function Footer({ minimal = false }: FooterProps) {
       <div className="footer-content">
         {/* Property Info */}
         <div className="footer-section">
-          <h3 className="footer-heading">☀️ Summerhouse</h3>
+          <h3 className="footer-heading">☀️ Quesada Apartment</h3>
           <p className="footer-description">
             Your vacation home in the Costa Blanca region. Experience the best of
             Spanish sunshine, beaches, and culture in Quesada, Alicante.
@@ -77,7 +77,7 @@ export function Footer({ minimal = false }: FooterProps) {
 
       <div className="footer-bottom">
         <p className="footer-copyright">
-          © {currentYear} Summerhouse. All rights reserved.
+          © {currentYear} Quesada Apartment. All rights reserved.
         </p>
         <div className="footer-legal">
           <a href="/privacy">Privacy Policy</a>

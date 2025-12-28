@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'About | Summerhouse Quesada',
-  description: 'Learn about Summerhouse Quesada, a beautiful vacation rental in Ciudad Quesada, Costa Blanca, Spain. Sleeps up to 4 guests.',
+  title: 'About | Quesada Apartment',
+  description: 'Learn about Quesada Apartment, a beautiful vacation rental in Ciudad Quesada, Costa Blanca, Spain. Sleeps up to 4 guests.',
 };
 
 const propertyHighlights = {
@@ -62,20 +62,20 @@ const amenities = {
 export default function AboutPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">About Summerhouse Quesada</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">About Quesada Apartment</h1>
 
       {/* Hero Description */}
       <div className="prose prose-lg max-w-none mb-12">
         <p className="text-gray-600 text-lg leading-relaxed">
-          Welcome to Summerhouse Quesada, your perfect holiday retreat in the heart of Costa Blanca.
+          Welcome to Quesada Apartment, your perfect holiday retreat in the heart of Costa Blanca.
           This beautifully maintained apartment offers the ideal base for exploring the stunning
           beaches, world-class golf courses, and vibrant local culture of southeastern Spain.
         </p>
         <p className="text-gray-600 leading-relaxed">
           Located in the popular residential area of Ciudad Quesada, our property combines
           comfort and convenience with authentic Spanish charm. Whether you&apos;re seeking a
-          relaxing beach holiday, an active golf trip, or a family adventure, Summerhouse
-          Quesada has everything you need.
+          relaxing beach holiday, an active golf trip, or a family adventure, Quesada
+          Apartment has everything you need.
         </p>
       </div>
 

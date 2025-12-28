@@ -1,4 +1,4 @@
-"""Enumeration types for Summerhouse data models."""
+"""Enumeration types for Quesada Apartment Booking data models."""
 
 from enum import Enum
 

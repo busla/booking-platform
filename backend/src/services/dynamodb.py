@@ -21,7 +21,7 @@ class DynamoDBService:
             environment: Environment name (dev/prod). Defaults to ENVIRONMENT env var.
         """
         self.environment = environment or os.getenv("ENVIRONMENT", "dev")
-        self.name_prefix = f"summerhouse-{self.environment}"
+        self.name_prefix = f"booking-{self.environment}"
         self._dynamodb = boto3.resource("dynamodb")
         self._client = boto3.client("dynamodb")
 

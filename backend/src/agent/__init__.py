@@ -1,4 +1,4 @@
-"""Strands agent definition for Summerhouse."""
+"""Strands agent definition for Quesada Apartment Booking."""
 
 from .booking_agent import create_booking_agent, get_agent, reset_agent
 

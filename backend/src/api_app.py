@@ -1,4 +1,4 @@
-"""FastAPI application for Summerhouse Booking Agent.
+"""FastAPI application for Quesada Apartment Booking Agent.
 
 Provides HTTP endpoints compatible with Vercel AI SDK v6:
 - POST /invoke-stream - Streaming agent invocation (SSE)
@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from src.agent import get_agent, reset_agent
 
 app = FastAPI(
-    title="Summerhouse Booking Agent",
+    title="Quesada Apartment Booking Agent",
     description="Agent-first vacation rental booking assistant",
     version="0.1.0",
 )
@@ -43,7 +43,7 @@ async def health_check() -> dict[str, Any]:
     return {
         "status": "Healthy",
         "timestamp": datetime.now(UTC).isoformat(),
-        "agent": "summerhouse-booking",
+        "agent": "booking-agent",
     }
 
 
@@ -199,7 +199,7 @@ async def invoke(request: Request) -> JSONResponse:
         return JSONResponse({
             "message": str(result),
             "timestamp": datetime.now(UTC).isoformat(),
-            "agent": "summerhouse-booking",
+            "agent": "booking-agent",
         })
     except Exception as e:
         return JSONResponse(

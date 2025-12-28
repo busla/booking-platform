@@ -1,4 +1,4 @@
-# Quickstart Guide: Summerhouse Booking Platform
+# Quickstart Guide: Booking Platform
 
 **Feature**: 001-agent-booking-platform
 **Date**: 2025-12-27
@@ -44,8 +44,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/summerhouse.git
-cd summerhouse
+git clone https://github.com/your-org/booking.git
+cd booking
 
 # Create feature branch
 git checkout -b 001-agent-booking-platform
@@ -74,11 +74,11 @@ AWS_REGION=us-east-1
 AWS_PROFILE=your-profile  # Optional if using default
 
 # DynamoDB Tables (set by Terraform)
-DYNAMODB_RESERVATIONS_TABLE=summerhouse-dev-reservations
-DYNAMODB_GUESTS_TABLE=summerhouse-dev-guests
-DYNAMODB_AVAILABILITY_TABLE=summerhouse-dev-availability
-DYNAMODB_PRICING_TABLE=summerhouse-dev-pricing
-DYNAMODB_PAYMENTS_TABLE=summerhouse-dev-payments
+DYNAMODB_RESERVATIONS_TABLE=booking-dev-reservations
+DYNAMODB_GUESTS_TABLE=booking-dev-guests
+DYNAMODB_AVAILABILITY_TABLE=booking-dev-availability
+DYNAMODB_PRICING_TABLE=booking-dev-pricing
+DYNAMODB_PAYMENTS_TABLE=booking-dev-payments
 
 # Cognito (set by Terraform)
 COGNITO_USER_POOL_ID=us-east-1_xxxxx
@@ -258,11 +258,11 @@ task tf:apply:prod
 cd backend
 
 # Build Docker image
-docker build -t summerhouse-agent:latest .
+docker build -t booking-agent:latest .
 
 # Push to ECR (set by Terraform)
 aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REPO
-docker tag summerhouse-agent:latest $ECR_REPO:latest
+docker tag booking-agent:latest $ECR_REPO:latest
 docker push $ECR_REPO:latest
 
 # Deploy to AgentCore (via Terraform or CLI)
@@ -314,7 +314,7 @@ python scripts/reset_tables.py --env dev --confirm
 tail -f backend/logs/agent.log
 
 # AgentCore Runtime (production)
-aws logs tail /aws/agentcore/summerhouse-prod --follow
+aws logs tail /aws/agentcore/booking-prod --follow
 ```
 
 ### Test Agent Conversation
@@ -361,7 +361,7 @@ DEBUG=* yarn dev
 curl http://localhost:3001/api/health
 
 # DynamoDB connectivity
-aws dynamodb describe-table --table-name summerhouse-dev-reservations
+aws dynamodb describe-table --table-name booking-dev-reservations
 
 # Cognito connectivity
 aws cognito-idp describe-user-pool --user-pool-id $COGNITO_USER_POOL_ID
@@ -370,7 +370,7 @@ aws cognito-idp describe-user-pool --user-pool-id $COGNITO_USER_POOL_ID
 ## Project Structure Reference
 
 ```
-summerhouse/
+booking/
 ├── Taskfile.yaml            # ⚠️ ALL terraform commands via this (never manual)
 ├── backend/
 │   ├── src/

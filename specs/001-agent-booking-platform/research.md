@@ -329,9 +329,9 @@ conversation_manager = SlidingWindowConversationManager(
 
 booking_agent = Agent(
     tools=all_tools,
-    name="SummerhouseBookingAgent",
+    name="BookingAgent",
     conversation_manager=conversation_manager,
-    system_prompt="""You are the booking assistant for Summerhouse, a vacation rental
+    system_prompt="""You are the booking assistant for a vacation rental
     apartment in Quesada, Alicante, Spain. You help guests check availability,
     understand pricing, learn about the property and area, and complete bookings.
 
@@ -381,7 +381,7 @@ from strands.session.s3_session_manager import S3SessionManager
 
 session_manager = S3SessionManager(
     session_id=f"guest-{guest_id}",
-    bucket="summerhouse-sessions",
+    bucket="booking-sessions",
     prefix="conversations/",
     region_name="eu-west-1"
 )
@@ -392,7 +392,7 @@ agent = Agent(
 )
 ```
 
-### Tool Categories for Summerhouse
+### Tool Categories for Booking
 
 | Category | Tools | Spec Requirements |
 |----------|-------|-------------------|
@@ -441,7 +441,7 @@ The existing `cognito-user-pool` module in terraform-aws-agentcore (`modules/cog
 - `ALLOW_CUSTOM_AUTH` in ExplicitAuthFlows
 - Lambda trigger configuration for DefineAuthChallenge, CreateAuthChallenge, VerifyAuthChallengeResponse
 
-**Action Required**: A new `cognito-passwordless` module MUST be created and added to `terraform-aws-agentcore/modules/` before Summerhouse implementation. This module will provide:
+**Action Required**: A new `cognito-passwordless` module MUST be created and added to `terraform-aws-agentcore/modules/` before Booking platform implementation. This module will provide:
 
 1. **Cognito User Pool** with custom auth enabled
 2. **Three Lambda Functions** (source code bundled inside module, NOT in consumer projects):
@@ -451,9 +451,9 @@ The existing `cognito-user-pool` module in terraform-aws-agentcore (`modules/cog
 3. **SES Configuration** - Email sending for verification codes
 4. **IAM Roles** - Lambda execution roles with SES permissions
 
-**Module self-containment**: Consumer projects (like Summerhouse) do NOT provide Lambda code. They only configure business rules (SES email, code TTL, email templates). This makes the module reusable across multiple projects.
+**Module self-containment**: Consumer projects (like Booking) do NOT provide Lambda code. They only configure business rules (SES email, code TTL, email templates). This makes the module reusable across multiple projects.
 
-#### Minimal Configuration for Summerhouse
+#### Minimal Configuration for Booking
 
 ```hcl
 # infrastructure/main.tf
@@ -463,7 +463,7 @@ The existing `cognito-user-pool` module in terraform-aws-agentcore (`modules/cog
 module "cognito_passwordless" {
   source = "~/code/apro/agentcore-sandbox/terraform-aws-agentcore/modules/cognito-passwordless"
 
-  namespace   = "summerhouse"
+  namespace   = "booking"
   environment = var.environment
   name        = "auth"
 
@@ -471,11 +471,11 @@ module "cognito_passwordless" {
   auto_verified_attributes = ["email"]
 
   # SES Configuration (module handles Lambda triggers internally)
-  ses_from_email      = "noreply@summerhouse.example.com"
-  ses_verified_domain = "summerhouse.example.com"
+  ses_from_email      = "noreply@booking.example.com"
+  ses_verified_domain = "booking.example.com"
 
   # Email template customization (optional)
-  email_subject = "Your Summerhouse Booking Verification Code"
+  email_subject = "Your Booking Verification Code"
   email_body    = "Your verification code is: {code}. This code expires in {ttl} minutes."
 
   # Code expiration policy
@@ -487,7 +487,7 @@ module "cognito_passwordless" {
 module "agentcore" {
   source = "~/code/apro/agentcore-sandbox/terraform-aws-agentcore"
 
-  namespace   = "summerhouse"
+  namespace   = "booking"
   environment = var.environment
   name        = "booking-agent"
 
@@ -536,7 +536,7 @@ The module does NOT provision application DynamoDB tables. These must be created
 
 ```hcl
 resource "aws_dynamodb_table" "reservations" {
-  name = "summerhouse-${var.environment}-reservations"
+  name = "booking-${var.environment}-reservations"
   billing_mode = "PAY_PER_REQUEST"
   hash_key = "reservation_id"
 
@@ -558,7 +558,7 @@ resource "aws_dynamodb_table" "reservations" {
 }
 
 resource "aws_dynamodb_table" "availability" {
-  name = "summerhouse-${var.environment}-availability"
+  name = "booking-${var.environment}-availability"
   billing_mode = "PAY_PER_REQUEST"
   hash_key = "date"
 
@@ -569,7 +569,7 @@ resource "aws_dynamodb_table" "availability" {
 }
 
 resource "aws_dynamodb_table" "guests" {
-  name = "summerhouse-${var.environment}-guests"
+  name = "booking-${var.environment}-guests"
   billing_mode = "PAY_PER_REQUEST"
   hash_key = "guest_id"
 
@@ -591,7 +591,7 @@ resource "aws_dynamodb_table" "guests" {
 }
 
 resource "aws_dynamodb_table" "pricing" {
-  name = "summerhouse-${var.environment}-pricing"
+  name = "booking-${var.environment}-pricing"
   billing_mode = "PAY_PER_REQUEST"
   hash_key = "season_id"
 
@@ -676,7 +676,7 @@ import time
 
 ses = boto3.client('ses')
 dynamodb = boto3.resource('dynamodb')
-codes_table = dynamodb.Table('summerhouse-verification-codes')
+codes_table = dynamodb.Table('booking-verification-codes')
 
 def handler(event, context):
     email = event['request']['userAttributes']['email']
@@ -694,10 +694,10 @@ def handler(event, context):
 
     # Send email
     ses.send_email(
-        Source='noreply@summerhouse.example.com',
+        Source='noreply@booking.example.com',
         Destination={'ToAddresses': [email]},
         Message={
-            'Subject': {'Data': 'Your Summerhouse verification code'},
+            'Subject': {'Data': 'Your Booking verification code'},
             'Body': {
                 'Text': {'Data': f'Your verification code is: {code}\n\nThis code expires in 10 minutes.'}
             }
@@ -723,7 +723,7 @@ import boto3
 import time
 
 dynamodb = boto3.resource('dynamodb')
-codes_table = dynamodb.Table('summerhouse-verification-codes')
+codes_table = dynamodb.Table('booking-verification-codes')
 
 def handler(event, context):
     email = event['request']['userAttributes']['email']
@@ -863,7 +863,7 @@ def verify_email_code(input: VerifyCodeInput) -> VerifyCodeResult:
 
 ```hcl
 resource "aws_cognito_user_pool" "main" {
-  name = "summerhouse-${var.environment}-users"
+  name = "booking-${var.environment}-users"
 
   auto_verified_attributes = ["email"]
 
@@ -882,7 +882,7 @@ resource "aws_cognito_user_pool" "main" {
 }
 
 resource "aws_cognito_user_pool_client" "main" {
-  name = "summerhouse-client"
+  name = "booking-client"
   user_pool_id = aws_cognito_user_pool.main.id
 
   explicit_auth_flows = [

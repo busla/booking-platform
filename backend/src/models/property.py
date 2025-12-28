@@ -1,7 +1,7 @@
 """Property models for apartment details and photos.
 
 These models represent the static property information for the
-Summerhouse vacation rental apartment.
+Quesada Apartment vacation rental.
 """
 
 from enum import Enum

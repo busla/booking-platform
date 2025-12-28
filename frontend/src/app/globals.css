@@ -1,5 +1,5 @@
 /**
- * Summerhouse Global Styles
+ * Quesada Apartment Global Styles
  *
  * Base styles for the vacation rental booking application.
  * Uses CSS custom properties for consistent theming.
@@ -788,4 +788,28 @@ a:focus:not(:focus-visible) {
 
 .prose-sm {
   font-size: 0.9375rem;
+}
+
+/* === Chat Widget Styles === */
+
+.chat-widget-conversation {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-widget-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.chat-widget-messages .conversation-empty-state {
+  min-height: auto;
+  padding: 2rem 1rem;
+}
+
+.chat-widget-messages .message-bubble {
+  max-width: 85%;
 }

@@ -1,5 +1,5 @@
 # https://taskfile.dev
-# Summerhouse Booking Platform - Task Runner
+# Booking Platform - Task Runner
 #
 # IMPORTANT: All Terraform commands MUST be run via this Taskfile.
 # Syntax: task tf:<action>:<env>
@@ -58,38 +58,37 @@ tasks:
     desc: Install backend Python dependencies with uv
     dir: backend
     cmds:
-      - uv venv
-      - uv pip install -e ".[dev]"
+      - uv sync
 
   backend:dev:
     desc: Run backend in development mode
     dir: backend
     cmds:
-      - source .venv/bin/activate && python -m uvicorn src.api_app:app --reload --port 3001
+      - uv run uvicorn src.api_app:app --reload --port 3001
 
   backend:test:
     desc: Run backend tests
     dir: backend
     cmds:
-      - source .venv/bin/activate && pytest
+      - uv run pytest
 
   backend:test:coverage:
     desc: Run backend tests with coverage
     dir: backend
     cmds:
-      - source .venv/bin/activate && pytest --cov=src --cov-report=html
+      - uv run pytest --cov=src --cov-report=html
 
   backend:lint:
     desc: Lint backend code
     dir: backend
     cmds:
-      - source .venv/bin/activate && ruff check src tests
+      - uv run ruff check src tests
 
   backend:typecheck:
     desc: Type check backend code
     dir: backend
     cmds:
-      - source .venv/bin/activate && mypy src
+      - uv run mypy src
 
   # ============================================================================
   # Frontend Commands

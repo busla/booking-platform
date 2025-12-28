@@ -1,0 +1,46 @@
+# Static Website Module - Outputs
+
+output "bucket_name" {
+  description = "Name of the S3 bucket hosting the website"
+  value       = module.s3_bucket.s3_bucket_id
+}
+
+output "bucket_arn" {
+  description = "ARN of the S3 bucket"
+  value       = module.s3_bucket.s3_bucket_arn
+}
+
+output "bucket_regional_domain_name" {
+  description = "Regional domain name of the S3 bucket"
+  value       = module.s3_bucket.s3_bucket_bucket_regional_domain_name
+}
+
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID"
+  value       = module.cloudfront.cloudfront_distribution_id
+}
+
+output "cloudfront_distribution_arn" {
+  description = "CloudFront distribution ARN"
+  value       = module.cloudfront.cloudfront_distribution_arn
+}
+
+output "cloudfront_domain_name" {
+  description = "CloudFront distribution domain name"
+  value       = module.cloudfront.cloudfront_distribution_domain_name
+}
+
+output "cloudfront_hosted_zone_id" {
+  description = "CloudFront hosted zone ID for Route53 alias"
+  value       = module.cloudfront.cloudfront_distribution_hosted_zone_id
+}
+
+output "website_url" {
+  description = "Full URL of the website"
+  value       = var.domain_name != "" ? "https://${var.domain_name}" : "https://${module.cloudfront.cloudfront_distribution_domain_name}"
+}
+
+output "deploy_command" {
+  description = "Command to deploy frontend to S3"
+  value       = "aws s3 sync frontend/out/ s3://${module.s3_bucket.s3_bucket_id}/ --delete && aws cloudfront create-invalidation --distribution-id ${module.cloudfront.cloudfront_distribution_id} --paths '/*'"
+}

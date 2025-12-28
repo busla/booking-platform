@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Pricing | Summerhouse Quesada',
-  description: 'View our seasonal rates and pricing for Summerhouse Quesada vacation rental in Costa Blanca, Spain.',
+  title: 'Pricing | Quesada Apartment',
+  description: 'View our seasonal rates and pricing for Quesada Apartment vacation rental in Costa Blanca, Spain.',
 };
 
 const pricingData = {

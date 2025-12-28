@@ -31,16 +31,26 @@ output "dynamodb_verification_codes_table_name" {
   value       = module.dynamodb.verification_codes_table_name
 }
 
-# Cognito Outputs (uncomment when cognito-passwordless module is available)
-# output "cognito_user_pool_id" {
-#   description = "Cognito User Pool ID"
-#   value       = module.cognito.user_pool_id
-# }
-#
-# output "cognito_user_pool_client_id" {
-#   description = "Cognito User Pool Client ID"
-#   value       = module.cognito.user_pool_client_id
-# }
+# Cognito Outputs
+output "cognito_user_pool_id" {
+  description = "Cognito User Pool ID"
+  value       = module.cognito.user_pool_id
+}
+
+output "cognito_user_pool_arn" {
+  description = "Cognito User Pool ARN"
+  value       = module.cognito.user_pool_arn
+}
+
+output "cognito_client_id" {
+  description = "Cognito User Pool Client ID"
+  value       = module.cognito.client_id
+}
+
+output "cognito_issuer_url" {
+  description = "JWT issuer URL for token validation"
+  value       = module.cognito.issuer_url
+}
 
 # AgentCore Outputs (uncomment when agentcore module is configured)
 # output "agentcore_endpoint" {
@@ -48,18 +58,28 @@ output "dynamodb_verification_codes_table_name" {
 #   value       = module.agentcore.endpoint_url
 # }
 
-# Static Website Outputs (uncomment when static-website module is available)
-# output "cloudfront_distribution_id" {
-#   description = "CloudFront distribution ID"
-#   value       = module.static_website.distribution_id
-# }
-#
-# output "cloudfront_domain_name" {
-#   description = "CloudFront distribution domain name"
-#   value       = module.static_website.domain_name
-# }
-#
-# output "s3_bucket_name" {
-#   description = "S3 bucket name for frontend assets"
-#   value       = module.static_website.bucket_name
-# }
+# Static Website Outputs
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID"
+  value       = module.static_website.cloudfront_distribution_id
+}
+
+output "cloudfront_domain_name" {
+  description = "CloudFront distribution domain name"
+  value       = module.static_website.cloudfront_domain_name
+}
+
+output "website_url" {
+  description = "Full URL of the website"
+  value       = module.static_website.website_url
+}
+
+output "s3_bucket_name" {
+  description = "S3 bucket name for frontend assets"
+  value       = module.static_website.bucket_name
+}
+
+output "frontend_deploy_command" {
+  description = "Command to deploy frontend to S3"
+  value       = module.static_website.deploy_command
+}

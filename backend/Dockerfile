@@ -1,4 +1,4 @@
-# Summerhouse Backend - AgentCore Runtime Container
+# Quesada Apartment Booking Backend - AgentCore Runtime Container
 # Platform: linux/arm64 (required by AgentCore Runtime)
 
 FROM --platform=linux/arm64 ghcr.io/astral-sh/uv:python3.13-bookworm-slim

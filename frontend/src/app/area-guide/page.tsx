@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Area Guide | Summerhouse Quesada',
+  title: 'Area Guide | Quesada Apartment',
   description: 'Discover Ciudad Quesada and Costa Blanca - beaches, golf, restaurants, attractions, and local tips for your Costa Blanca holiday.',
 };
 
@@ -116,7 +116,7 @@ export default function AreaGuidePage() {
       <p className="text-gray-600 mb-8 text-lg">
         Ciudad Quesada is a wonderful base for exploring the Costa Blanca. From stunning
         beaches to world-class golf, traditional markets to modern shopping, there&apos;s
-        something for everyone within easy reach of Summerhouse Quesada.
+        something for everyone within easy reach of Quesada Apartment.
       </p>
 
       {/* Beaches */}

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Quick test script for the Summerhouse booking agent."""
+"""Quick test script for the Quesada Apartment booking agent."""
 
 from src.agent import create_booking_agent
 
 
 def main() -> None:
     """Test the booking agent with a simple conversation."""
-    print("Creating Summerhouse booking agent...")
+    print("Creating Quesada Apartment booking agent...")
     agent = create_booking_agent()
 
     print("\n" + "=" * 60)

@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "summerhouse-backend"
+name = "booking-backend"
 version = "0.1.0"
-description = "Summerhouse Agent-First Vacation Rental Booking Platform - Backend"
+description = "Quesada Apartment Agent-First Vacation Rental Booking Platform - Backend"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 license = { text = "MIT" }
 authors = [
-    { name = "Summerhouse Team" }
+    { name = "Quesada Apartment Team" }
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -44,7 +44,7 @@ dev = [
 ]
 
 [project.scripts]
-summerhouse-agent = "src.api_app:run_server"
+booking-agent = "src.api_app:run_server"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]

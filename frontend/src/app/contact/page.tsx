@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Contact | Summerhouse Quesada',
-  description: 'Get in touch with Summerhouse Quesada. Contact us for booking inquiries, questions, or assistance with your stay.',
+  title: 'Contact | Quesada Apartment',
+  description: 'Get in touch about Quesada Apartment. Contact us for booking inquiries, questions, or assistance with your stay.',
 };
 
 const contactMethods = [
@@ -25,9 +25,9 @@ const contactMethods = [
       </svg>
     ),
     title: 'Email',
-    description: 'hello@summerhousequesada.com',
+    description: 'hello@quesada-apartment.com',
     action: 'Send Email',
-    href: 'mailto:hello@summerhousequesada.com',
+    href: 'mailto:hello@quesada-apartment.com',
   },
 ];
 

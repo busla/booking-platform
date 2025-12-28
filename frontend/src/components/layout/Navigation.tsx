@@ -3,7 +3,7 @@
 /**
  * Navigation Component
  *
- * Main navigation bar for the Summerhouse application.
+ * Main navigation bar for the Quesada Apartment booking application.
  * Combines Header with optional navigation links and mobile menu.
  */
 

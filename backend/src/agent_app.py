@@ -1,4 +1,4 @@
-"""AgentCore Runtime entrypoint for Summerhouse Booking Agent.
+"""AgentCore Runtime entrypoint for Quesada Apartment Booking Agent.
 
 This module provides the HTTP interface required by AWS Bedrock AgentCore Runtime:
 - POST /invocations - Agent invocation endpoint
@@ -44,7 +44,7 @@ async def invoke(payload: dict[str, Any]) -> dict[str, Any]:
         return {
             "message": result.message,
             "timestamp": datetime.now(UTC).isoformat(),
-            "agent": "summerhouse-booking",
+            "agent": "booking-agent",
         }
 
     except Exception as e:

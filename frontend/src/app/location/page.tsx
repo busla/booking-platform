@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Location | Summerhouse Quesada',
-  description: 'Find Summerhouse Quesada vacation rental in Ciudad Quesada, Alicante, Costa Blanca, Spain. View map and directions.',
+  title: 'Location | Quesada Apartment',
+  description: 'Find Quesada Apartment vacation rental in Ciudad Quesada, Alicante, Costa Blanca, Spain. View map and directions.',
 };
 
 const locationData = {
@@ -35,7 +35,7 @@ export default function LocationPage() {
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Location</h1>
 
       <p className="text-gray-600 mb-8">
-        Summerhouse Quesada is located in the heart of Ciudad Quesada, a popular
+        Quesada Apartment is located in the heart of Ciudad Quesada, a popular
         residential area on Spain&apos;s beautiful Costa Blanca. The property is
         perfectly positioned for both golf enthusiasts and beach lovers.
       </p>
@@ -77,7 +77,7 @@ export default function LocationPage() {
             allowFullScreen
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            title="Summerhouse Quesada location map"
+            title="Quesada Apartment location map"
           />
         </div>
       </div>

@@ -45,3 +45,9 @@ variable "certificate_arn" {
   type        = string
   default     = ""
 }
+
+variable "cert_name" {
+  description = "Domain name of the ACM certificate to look up (alternative to certificate_arn)"
+  type        = string
+  default     = ""
+}

@@ -1,1 +1,1 @@
-"""Unit tests for Summerhouse backend."""
+"""Unit tests for Quesada Apartment Booking backend."""

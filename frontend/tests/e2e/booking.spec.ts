@@ -22,14 +22,14 @@ test.describe('Booking Conversation Flow', () => {
     // Navigate to the chat page
     await page.goto('/')
     // Wait for the chat interface to load
-    await expect(page.getByRole('heading', { name: 'Summerhouse', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Quesada Apartment', exact: true })).toBeVisible()
   })
 
   // === Page Load Tests ===
 
   test('displays welcome message and suggestion buttons on load', async ({ page }) => {
     // Check welcome message
-    await expect(page.getByText('Welcome to Summerhouse!')).toBeVisible()
+    await expect(page.getByText('Welcome to Quesada Apartment!')).toBeVisible()
     await expect(page.getByText("I'm your booking assistant")).toBeVisible()
 
     // Check suggestion buttons are present
@@ -59,21 +59,24 @@ test.describe('Booking Conversation Flow', () => {
     await expect(page.getByText('Hello')).toBeVisible()
 
     // Wait for assistant response (mock backend returns greeting)
-    await expect(page.getByText(/Welcome to Summerhouse/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/Welcome to Quesada Apartment/i)).toBeVisible({ timeout: 10000 })
   })
 
-  test('suggestion button populates input field', async ({ page }) => {
+  test('suggestion button sends message directly', async ({ page }) => {
     // Click a suggestion button
     await page.getByRole('button', { name: 'Check availability' }).click()
 
-    // Input should be populated
+    // Message should appear in the conversation (not just populate input)
+    await expect(page.getByText('What dates are available?')).toBeVisible()
+
+    // Input should be cleared after sending
     const input = page.getByPlaceholder('Ask about availability, pricing, or the property...')
-    await expect(input).toHaveValue('What dates are available?')
+    await expect(input).toHaveValue('')
   })
 
   test('clears empty state after first message', async ({ page }) => {
     // Initially, empty state is visible
-    await expect(page.getByText('Welcome to Summerhouse!')).toBeVisible()
+    await expect(page.getByText('Welcome to Quesada Apartment!')).toBeVisible()
 
     // Send a message
     const input = page.getByPlaceholder('Ask about availability, pricing, or the property...')
@@ -81,10 +84,10 @@ test.describe('Booking Conversation Flow', () => {
     await page.keyboard.press('Enter')
 
     // Wait for response
-    await page.waitForSelector('text=/Summerhouse/')
+    await page.waitForSelector('text=/Quesada Apartment/')
 
     // Empty state should be gone (the welcome card)
-    await expect(page.getByText('Welcome to Summerhouse!')).not.toBeVisible()
+    await expect(page.getByText('Welcome to Quesada Apartment!')).not.toBeVisible()
   })
 
   // === Availability Flow Tests ===
@@ -154,7 +157,7 @@ test.describe('Booking Conversation Flow', () => {
     await input.fill('Hello')
     await page.keyboard.press('Enter')
     // Wait for assistant response - mock returns "Welcome to Summerhouse"
-    await expect(page.getByText('Welcome to Summerhouse!')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Welcome to Quesada Apartment!')).toBeVisible({ timeout: 10000 })
 
     // Second message
     await input.fill('What are your rates?')
@@ -179,7 +182,7 @@ test.describe('Booking Conversation Flow', () => {
     // Input should be disabled briefly during loading
     // (This may happen quickly, so we just verify the flow completes)
     // Wait for assistant response - mock returns "Welcome to Summerhouse"
-    await expect(page.getByText('Welcome to Summerhouse!')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Welcome to Quesada Apartment!')).toBeVisible({ timeout: 10000 })
 
     // Input should be re-enabled after response
     await expect(input).toBeEnabled()
@@ -277,7 +280,7 @@ test.describe('Accessibility', () => {
     await page.goto('/')
 
     // Main heading
-    const h1 = page.getByRole('heading', { level: 1, name: 'Summerhouse' })
+    const h1 = page.getByRole('heading', { level: 1, name: 'Quesada Apartment' })
     await expect(h1).toBeVisible()
   })
 
@@ -309,7 +312,7 @@ test.describe('Responsive Design', () => {
     await page.goto('/')
 
     // Chat interface should be visible
-    await expect(page.getByText('Welcome to Summerhouse!')).toBeVisible()
+    await expect(page.getByText('Welcome to Quesada Apartment!')).toBeVisible()
 
     // Input should be accessible
     const input = page.getByPlaceholder('Ask about availability, pricing, or the property...')
@@ -320,7 +323,7 @@ test.describe('Responsive Design', () => {
     await page.setViewportSize({ width: 768, height: 1024 })
     await page.goto('/')
 
-    await expect(page.getByText('Welcome to Summerhouse!')).toBeVisible()
+    await expect(page.getByText('Welcome to Quesada Apartment!')).toBeVisible()
   })
 })
 

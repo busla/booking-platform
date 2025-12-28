@@ -24,8 +24,8 @@ def reset_property_data() -> None:
 def sample_property_with_photos() -> dict:
     """Create sample property data with multiple photos."""
     return {
-        "property_id": "summerhouse-quesada",
-        "name": "Summerhouse Quesada",
+        "property_id": "booking-quesada",
+        "name": "Quesada Apartment",
         "description": "Beautiful vacation apartment",
         "address": {
             "street": "Calle del Sol 45",

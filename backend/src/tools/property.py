@@ -1,7 +1,7 @@
 """Property tools for apartment details and photos.
 
 These tools allow the booking agent to provide detailed information
-about the Summerhouse vacation rental apartment.
+about the Quesada Apartment vacation rental.
 """
 
 import json
@@ -108,7 +108,7 @@ def ensure_property_data_loaded() -> None:
 
 @tool
 def get_property_details() -> dict[str, Any]:
-    """Get detailed information about the Summerhouse apartment.
+    """Get detailed information about the Quesada Apartment.
 
     Use this tool when a guest asks about the apartment, accommodation details,
     amenities, house rules, or any specific property information.
@@ -158,7 +158,7 @@ def get_property_details() -> dict[str, Any]:
 
 @tool
 def get_photos(category: str | None = None, limit: int | None = None) -> dict[str, Any]:
-    """Get photos of the Summerhouse apartment.
+    """Get photos of the Quesada Apartment.
 
     Use this tool when a guest asks to see photos, images, or pictures of the
     property. You can filter by category like 'bedroom', 'pool', 'terrace', etc.

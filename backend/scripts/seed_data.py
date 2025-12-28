@@ -30,7 +30,7 @@ import boto3  # noqa: E402
 
 def get_table_name(env: str, table: str) -> str:
     """Get full table name with environment prefix."""
-    return f"summerhouse-{env}-{table}"
+    return f"booking-{env}-{table}"
 
 
 def create_seasonal_pricing(env: str) -> list[dict]:

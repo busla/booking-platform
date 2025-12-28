@@ -1,4 +1,4 @@
-"""Pydantic models for Summerhouse data entities."""
+"""Pydantic models for Quesada Apartment Booking data entities."""
 
 from .availability import (
     Availability,

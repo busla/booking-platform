@@ -1,4 +1,4 @@
-# Summerhouse: Agent-First Vacation Rental Booking Platform
+# Booking: Agent-First Vacation Rental Booking Platform
 
 Auto-generated from feature plans. Last updated: 2025-12-27
 
@@ -28,6 +28,62 @@ An AI agent-driven vacation rental booking platform where the conversational age
 - **Auth**: AWS Cognito (passwordless email verification)
 - **Hosting**: S3 + CloudFront (frontend), AgentCore Runtime (backend)
 - **Region**: Configured per environment in `terraform.tfvars.json`
+
+## Infrastructure Rules
+
+### NON-NEGOTIABLE: Use CloudPosse Label Module
+
+**ALWAYS use `cloudposse/label/null` for consistent naming and tagging across all modules.**
+
+Convention for this project:
+- `namespace`: `booking`
+- `environment`: `dev` or `prod` (from `var.environment`)
+- `name`: Component name (e.g., `reservations`, `website`, `auth`)
+- `attributes`: Optional additional context
+
+Every module MUST include:
+```hcl
+module "label" {
+  source  = "cloudposse/label/null"
+  version = "~> 0.25"
+
+  namespace   = "booking"
+  environment = var.environment
+  name        = "component-name"
+}
+```
+
+Use `module.label.id` for resource names and `module.label.tags` for tags.
+
+### NON-NEGOTIABLE: Use terraform-aws-modules
+
+**NEVER write raw AWS resources when a terraform-aws-modules equivalent exists.**
+
+Use modules from [terraform-aws-modules](https://github.com/terraform-aws-modules):
+
+| Resource Type | Required Module |
+|---------------|-----------------|
+| DynamoDB tables | `terraform-aws-modules/dynamodb-table/aws` |
+| S3 buckets | `terraform-aws-modules/s3-bucket/aws` |
+| CloudFront | `terraform-aws-modules/cloudfront/aws` |
+| IAM roles/policies | `terraform-aws-modules/iam/aws` |
+| Lambda functions | `terraform-aws-modules/lambda/aws` |
+| VPC/networking | `terraform-aws-modules/vpc/aws` |
+| Security groups | `terraform-aws-modules/security-group/aws` |
+| ALB/NLB | `terraform-aws-modules/alb/aws` |
+| ECS | `terraform-aws-modules/ecs/aws` |
+| RDS | `terraform-aws-modules/rds/aws` |
+
+**Exceptions** (no terraform-aws-modules equivalent):
+- Cognito User Pool / Client
+- Bedrock resources
+- Custom/niche AWS services
+
+### NON-NEGOTIABLE: Use Taskfile for Terraform
+
+**NEVER run `terraform` or `terragrunt` commands directly. ALL commands via Taskfile.**
+
+If a `task tf:*` command fails, report the error to the user. Do NOT bypass with raw terraform.
 
 ## Critical Commands
 
@@ -69,7 +125,7 @@ task seed:dev         # Seed dev database
 ## Project Structure
 
 ```text
-summerhouse/
+booking/
 ├── Taskfile.yaml           # ⚠️ ALL terraform commands via this
 ├── CLAUDE.md               # This file
 ├── backend/
@@ -118,12 +174,12 @@ summerhouse/
 
 | Table | Purpose | PK | SK |
 |-------|---------|----|----|
-| `summerhouse-{env}-reservations` | Bookings | `reservation_id` | — |
-| `summerhouse-{env}-guests` | Guest profiles | `guest_id` | — |
-| `summerhouse-{env}-availability` | Date availability | `date` | — |
-| `summerhouse-{env}-pricing` | Seasonal pricing | `season_id` | — |
-| `summerhouse-{env}-payments` | Payment records | `payment_id` | — |
-| `summerhouse-{env}-verification-codes` | Auth codes (TTL) | `email` | — |
+| `booking-{env}-reservations` | Bookings | `reservation_id` | — |
+| `booking-{env}-guests` | Guest profiles | `guest_id` | — |
+| `booking-{env}-availability` | Date availability | `date` | — |
+| `booking-{env}-pricing` | Seasonal pricing | `season_id` | — |
+| `booking-{env}-payments` | Payment records | `payment_id` | — |
+| `booking-{env}-verification-codes` | Auth codes (TTL) | `email` | — |
 
 ## Strands Tools
 
@@ -159,8 +215,8 @@ Tools are Python functions with `@tool` decorator. Categories:
 ### Backend (.env)
 ```
 AWS_REGION=us-east-1
-DYNAMODB_RESERVATIONS_TABLE=summerhouse-dev-reservations
-DYNAMODB_GUESTS_TABLE=summerhouse-dev-guests
+DYNAMODB_RESERVATIONS_TABLE=booking-dev-reservations
+DYNAMODB_GUESTS_TABLE=booking-dev-guests
 COGNITO_USER_POOL_ID=us-east-1_xxxxx
 COGNITO_CLIENT_ID=xxxxx
 BEDROCK_MODEL_ID=anthropic.claude-sonnet-4-20250514
@@ -177,7 +233,7 @@ NEXT_PUBLIC_COGNITO_REGION=us-east-1
 
 ## Constitution Principles
 
-This project follows the Summerhouse Constitution (v1.1.0):
+This project follows the Booking Constitution (v1.1.0):
 
 1. **Test-First Development (NON-NEGOTIABLE)** - TDD for all features
 2. **Simplicity & YAGNI** - Minimal viable implementation

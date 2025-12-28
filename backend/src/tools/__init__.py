@@ -1,4 +1,4 @@
-"""Summerhouse booking agent tools.
+"""Quesada Apartment booking agent tools.
 
 This module exports all tools available to the booking agent.
 Tools are organized by category:

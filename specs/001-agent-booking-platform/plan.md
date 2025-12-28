@@ -162,7 +162,7 @@ infrastructure/
     └── prod.tfvars
 ```
 
-**Structure Decision**: Web application with clear frontend/backend separation. Frontend is a Next.js app using Vercel AI SDK v6 for the conversation UI. Backend is a Strands agent deployed to AgentCore Runtime. Infrastructure managed via terraform-aws-agentcore module. Cognito Lambda functions are **bundled within the cognito-passwordless module**, not in consumer projects—Summerhouse only provides configuration. This structure supports independent deployment of frontend (CloudFront/S3) and backend (AgentCore), enables clear API boundaries, and aligns with the constitution's technology stack requirements.
+**Structure Decision**: Web application with clear frontend/backend separation. Frontend is a Next.js app using Vercel AI SDK v6 for the conversation UI. Backend is a Strands agent deployed to AgentCore Runtime. Infrastructure managed via terraform-aws-agentcore module. Cognito Lambda functions are **bundled within the cognito-passwordless module**, not in consumer projects—Booking only provides configuration. This structure supports independent deployment of frontend (CloudFront/S3) and backend (AgentCore), enables clear API boundaries, and aligns with the constitution's technology stack requirements.
 
 **Terraform Execution**: All Terraform commands MUST be run via `Taskfile.yaml` at repo root—never manually. Use syntax `task tf:<action>:<env>` (e.g., `task tf:init:dev`, `task tf:plan:prod`). The Taskfile handles environment selection, backend configuration, and AWS profile binding.
 
@@ -170,7 +170,7 @@ infrastructure/
 
 ### Prerequisite: cognito-passwordless Module
 
-> ⚠️ **Before Summerhouse implementation begins**, a new `cognito-passwordless` module MUST be created in `terraform-aws-agentcore/modules/`. The existing `cognito-user-pool` module does not support custom auth challenge flows.
+> ⚠️ **Before Booking implementation begins**, a new `cognito-passwordless` module MUST be created in `terraform-aws-agentcore/modules/`. The existing `cognito-user-pool` module does not support custom auth challenge flows.
 
 ```text
 # To be added to terraform-aws-agentcore repository
@@ -190,7 +190,7 @@ terraform-aws-agentcore/modules/cognito-passwordless/
         └── index.py  # VerifyAuthChallengeResponse trigger
 ```
 
-**Key design**: The Lambda functions are **self-contained within the module**. Consumer projects (like Summerhouse) do NOT need to provide Lambda code—they simply configure the module with SES settings and business rules (code TTL, max attempts).
+**Key design**: The Lambda functions are **self-contained within the module**. Consumer projects (like Booking) do NOT need to provide Lambda code—they simply configure the module with SES settings and business rules (code TTL, max attempts).
 
 ### Prerequisite: static-website Module
 
@@ -217,7 +217,7 @@ terraform-aws-agentcore/modules/static-website/
 
 **Cache invalidation strategy**: CloudFront invalidation is NEVER required. Next.js MUST be configured to export artifacts with **content-hash filenames** (e.g., `main-abc123.js`). CloudFront uses aggressive caching with long TTLs; cache-busting happens automatically via filename changes.
 
-Consumer projects (like Summerhouse) configure the module with domain settings, certificate ARN, and frontend source directory—no manual deployment commands.
+Consumer projects (like Booking) configure the module with domain settings, certificate ARN, and frontend source directory—no manual deployment commands.
 
 ## Constitution Check (Post-Design Re-evaluation)
 

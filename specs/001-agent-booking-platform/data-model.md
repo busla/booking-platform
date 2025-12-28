@@ -6,7 +6,7 @@
 
 ## Overview
 
-This document defines the data model for the Summerhouse booking platform. All entities are stored in DynamoDB tables optimized for the access patterns required by the agent tools and API endpoints.
+This document defines the data model for the Booking vacation rental platform. All entities are stored in DynamoDB tables optimized for the access patterns required by the agent tools and API endpoints.
 
 ## Entity Relationship Diagram
 
@@ -32,7 +32,7 @@ This document defines the data model for the Summerhouse booking platform. All e
 
 ### 1. Reservations Table
 
-**Table Name**: `summerhouse-{env}-reservations`
+**Table Name**: `booking-{env}-reservations`
 
 | Attribute | Type | Key | Description |
 |-----------|------|-----|-------------|
@@ -115,7 +115,7 @@ class Reservation(BaseModel):
 
 ### 2. Guests Table
 
-**Table Name**: `summerhouse-{env}-guests`
+**Table Name**: `booking-{env}-guests`
 
 | Attribute | Type | Key | Description |
 |-----------|------|-----|-------------|
@@ -164,7 +164,7 @@ class Guest(BaseModel):
 
 ### 3. Availability Table
 
-**Table Name**: `summerhouse-{env}-availability`
+**Table Name**: `booking-{env}-availability`
 
 | Attribute | Type | Key | Description |
 |-----------|------|-----|-------------|
@@ -222,7 +222,7 @@ class Availability(BaseModel):
 
 ### 4. Pricing Table
 
-**Table Name**: `summerhouse-{env}-pricing`
+**Table Name**: `booking-{env}-pricing`
 
 | Attribute | Type | Key | Description |
 |-----------|------|-----|-------------|
@@ -299,7 +299,7 @@ class Pricing(BaseModel):
 
 ### 5. Payments Table
 
-**Table Name**: `summerhouse-{env}-payments`
+**Table Name**: `booking-{env}-payments`
 
 | Attribute | Type | Key | Description |
 |-----------|------|-----|-------------|
@@ -356,7 +356,7 @@ class Payment(BaseModel):
 
 ### 6. Verification Codes Table (Cognito Support)
 
-**Table Name**: `summerhouse-{env}-verification-codes`
+**Table Name**: `booking-{env}-verification-codes`
 
 | Attribute | Type | Key | Description |
 |-----------|------|-----|-------------|
@@ -387,8 +387,8 @@ Stored as JSON in S3 or a single DynamoDB item:
 
 ```json
 {
-  "property_id": "summerhouse-quesada",
-  "name": "Summerhouse Quesada",
+  "property_id": "booking-quesada",
+  "name": "Quesada Apartment",
   "description": "Beautiful vacation apartment in Quesada, Alicante...",
   "address": {
     "street": "Calle Example 123",
@@ -417,13 +417,13 @@ Stored as JSON in S3 or a single DynamoDB item:
   "photos": [
     {
       "id": "living-room-1",
-      "url": "https://cdn.summerhouse.example/photos/living-room-1.jpg",
+      "url": "https://cdn.booking.example/photos/living-room-1.jpg",
       "caption": "Spacious living room",
       "category": "living_room"
     },
     {
       "id": "bedroom-1",
-      "url": "https://cdn.summerhouse.example/photos/bedroom-1.jpg",
+      "url": "https://cdn.booking.example/photos/bedroom-1.jpg",
       "caption": "Master bedroom with double bed",
       "category": "bedroom"
     }
@@ -550,7 +550,7 @@ Based on spec.md assumptions:
 ```hcl
 # DynamoDB Tables
 resource "aws_dynamodb_table" "reservations" {
-  name         = "summerhouse-${var.environment}-reservations"
+  name         = "booking-${var.environment}-reservations"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "reservation_id"
 
@@ -592,7 +592,7 @@ resource "aws_dynamodb_table" "reservations" {
 }
 
 resource "aws_dynamodb_table" "guests" {
-  name         = "summerhouse-${var.environment}-guests"
+  name         = "booking-${var.environment}-guests"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "guest_id"
 
@@ -616,7 +616,7 @@ resource "aws_dynamodb_table" "guests" {
 }
 
 resource "aws_dynamodb_table" "availability" {
-  name         = "summerhouse-${var.environment}-availability"
+  name         = "booking-${var.environment}-availability"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "date"
 
@@ -629,7 +629,7 @@ resource "aws_dynamodb_table" "availability" {
 }
 
 resource "aws_dynamodb_table" "pricing" {
-  name         = "summerhouse-${var.environment}-pricing"
+  name         = "booking-${var.environment}-pricing"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "season_id"
 
@@ -642,7 +642,7 @@ resource "aws_dynamodb_table" "pricing" {
 }
 
 resource "aws_dynamodb_table" "payments" {
-  name         = "summerhouse-${var.environment}-payments"
+  name         = "booking-${var.environment}-payments"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "payment_id"
 
@@ -666,7 +666,7 @@ resource "aws_dynamodb_table" "payments" {
 }
 
 resource "aws_dynamodb_table" "verification_codes" {
-  name         = "summerhouse-${var.environment}-verification-codes"
+  name         = "booking-${var.environment}-verification-codes"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "email"
 

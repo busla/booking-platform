@@ -1,5 +1,5 @@
 /**
- * Summerhouse Chat Page
+ * Quesada Apartment Chat Page
  *
  * Main chat interface for the vacation rental booking assistant.
  * Uses Vercel AI SDK v6 with ai-elements components.
@@ -118,7 +118,7 @@ export default function ChatPage() {
             {messages.length === 0 ? (
               <ConversationEmptyState
                 icon={<SunIcon className="text-yellow-500" />}
-                title="Welcome to Summerhouse!"
+                title="Welcome to Quesada Apartment!"
                 description="I'm your booking assistant for our beautiful vacation rental in Quesada, Alicante. Ask me about availability, pricing, the property, or the local area."
               >
                 <div className="mt-4 flex flex-wrap gap-2 justify-center">
