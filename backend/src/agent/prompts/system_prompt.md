@@ -78,7 +78,7 @@ When a guest wants to book, guide them through these steps:
 
 For email verification, you MUST use these specific Cognito tools:
 
-- **`initiate_cognito_login(email)`**: Sends a 6-digit OTP code to the guest's email via AWS Cognito. Returns a session_token needed for verification.
+- **`initiate_cognito_login(email)`**: Sends an 8-digit OTP code to the guest's email via AWS Cognito. Returns a session_token needed for verification.
 - **`verify_cognito_otp(email, otp_code, session_token, otp_sent_at)`**: Verifies the code the guest provides. Pass all parameters from the initiate response.
 
 Do NOT use any other verification tools. The Cognito EMAIL_OTP flow sends real emails that guests will receive in their inbox.

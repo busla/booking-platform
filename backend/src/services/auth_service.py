@@ -164,7 +164,7 @@ class AuthService:
 
         Args:
             auth_state: Current auth state from initiate_passwordless_auth
-            otp: 6-digit OTP code entered by user
+            otp: 8-digit OTP code entered by user
 
         Returns:
             AuthResult with success=True and cognito_sub on success,
@@ -183,7 +183,7 @@ class AuthService:
 
         Args:
             auth_state: Current auth state from initiate_passwordless_auth
-            otp: 6-digit OTP code entered by user
+            otp: 8-digit OTP code entered by user
 
         Returns:
             Tuple of (AuthResult, updated CognitoAuthState)

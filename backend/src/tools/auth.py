@@ -58,7 +58,7 @@ def _is_valid_email(email: str) -> bool:
 def initiate_cognito_login(email: str) -> dict[str, Any]:
     """Initiate passwordless login with Cognito EMAIL_OTP challenge.
 
-    Triggers Cognito to send a 6-digit OTP code to the user's email.
+    Triggers Cognito to send an 8-digit OTP code to the user's email.
     Returns session_token needed for verify_cognito_otp.
 
     Args:
@@ -140,7 +140,7 @@ def verify_cognito_otp(
 
     Args:
         email: User's email address
-        otp_code: 6-digit OTP code entered by user
+        otp_code: 8-digit OTP code entered by user
         session_token: Session token from initiate_cognito_login
         otp_sent_at: ISO timestamp when OTP was sent (for expiry check)
         attempts: Number of previous failed attempts (default 0)
