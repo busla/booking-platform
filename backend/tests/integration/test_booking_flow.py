@@ -15,13 +15,25 @@ hardcoded pricing for test simplicity.
 """
 
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Generator
 from unittest.mock import MagicMock, patch
 
 import boto3
 import pytest
 from moto import mock_aws
+
+
+# === Dynamic Date Helpers ===
+# Use dates 30+ days in the future to avoid past-date validation failures
+def _base_date() -> date:
+    """Get a base date 30 days in the future for testing."""
+    return date.today() + timedelta(days=30)
+
+
+def _date_str(offset: int = 0) -> str:
+    """Get a date string offset from the base date."""
+    return (_base_date() + timedelta(days=offset)).isoformat()
 
 # Set environment for tests before importing tools
 # Only set fake credentials if AWS_PROFILE is not set (to allow real AWS integration tests)
@@ -190,25 +202,29 @@ def dynamodb_tables(aws_credentials: None) -> Generator[Any, None, None]:
 
 @pytest.fixture
 def seed_availability(dynamodb_tables: Any) -> None:
-    """Seed availability data for testing."""
+    """Seed availability data for testing.
+
+    Creates 32 days of availability starting from _base_date():
+    - Days 0-8: available
+    - Days 9-13: booked (for conflict testing)
+    - Days 14-31: available
+    """
     resource = boto3.resource("dynamodb", region_name="eu-west-1")
     table = resource.Table("test-booking-availability")
 
-    # Create available dates for July 2025
-    for day in range(1, 32):
-        try:
-            date_str = f"2025-07-{day:02d}"
-            # Make days 10-14 already booked for conflict testing
-            status = "booked" if day in [10, 11, 12, 13, 14] else "available"
-            table.put_item(
-                Item={
-                    "date": date_str,
-                    "status": status,
-                    "reservation_id": "existing-res-123" if status == "booked" else None,
-                }
-            )
-        except Exception:
-            pass  # Skip invalid dates
+    # Create available dates starting from base date (30 days in future)
+    for day_offset in range(32):
+        date_str = _date_str(day_offset)
+        # Make days 9-13 (offsets) already booked for conflict testing
+        # This maps to the old "July 10-14" being booked
+        status = "booked" if day_offset in [9, 10, 11, 12, 13] else "available"
+        table.put_item(
+            Item={
+                "date": date_str,
+                "status": status,
+                "reservation_id": "existing-res-123" if status == "booked" else None,
+            }
+        )
 
 
 @pytest.fixture
@@ -244,10 +260,10 @@ class TestCompleteBookingFlow:
         from src.tools.reservations import create_reservation
         from src.tools.payments import process_payment
 
-        # Step 1: Check availability
+        # Step 1: Check availability (days 0-4, all available)
         avail_result = check_availability(
-            check_in="2025-07-01",
-            check_out="2025-07-05",
+            check_in=_date_str(0),
+            check_out=_date_str(4),
         )
 
         assert avail_result["status"] == "success"
@@ -257,8 +273,8 @@ class TestCompleteBookingFlow:
         # Note: Pricing is calculated internally by create_reservation
         res_result = create_reservation(
             guest_id="verified-guest-123",
-            check_in="2025-07-01",
-            check_out="2025-07-05",
+            check_in=_date_str(0),
+            check_out=_date_str(4),
             num_adults=2,
             num_children=1,
             special_requests="Early check-in please",
@@ -291,10 +307,10 @@ class TestCompleteBookingFlow:
         from src.tools.availability import check_availability
         from src.tools.reservations import create_reservation
 
-        # Step 1: Check availability for booked dates (July 10-14)
+        # Step 1: Check availability for booked dates (offsets 9-14, seeded as booked)
         avail_result = check_availability(
-            check_in="2025-07-10",
-            check_out="2025-07-15",
+            check_in=_date_str(9),
+            check_out=_date_str(14),
         )
 
         assert avail_result["status"] == "success"
@@ -304,8 +320,8 @@ class TestCompleteBookingFlow:
         # Step 2: Try to create reservation anyway (agent wouldn't, but test protection)
         res_result = create_reservation(
             guest_id="verified-guest-123",
-            check_in="2025-07-10",
-            check_out="2025-07-15",
+            check_in=_date_str(9),
+            check_out=_date_str(14),
             num_adults=2,
         )
 
@@ -322,10 +338,10 @@ class TestCompleteBookingFlow:
         from src.tools.availability import check_availability
         from src.tools.reservations import create_reservation
 
-        # Step 1: Verify dates are available
+        # Step 1: Verify dates are available (offsets 19-24, available range)
         avail_before = check_availability(
-            check_in="2025-07-20",
-            check_out="2025-07-25",
+            check_in=_date_str(19),
+            check_out=_date_str(24),
         )
 
         assert avail_before["is_available"] is True
@@ -333,8 +349,8 @@ class TestCompleteBookingFlow:
         # Step 2: Create reservation
         res_result = create_reservation(
             guest_id="verified-guest-123",
-            check_in="2025-07-20",
-            check_out="2025-07-25",
+            check_in=_date_str(19),
+            check_out=_date_str(24),
             num_adults=2,
         )
 
@@ -342,8 +358,8 @@ class TestCompleteBookingFlow:
 
         # Step 3: Check availability again - should now be unavailable
         avail_after = check_availability(
-            check_in="2025-07-20",
-            check_out="2025-07-25",
+            check_in=_date_str(19),
+            check_out=_date_str(24),
         )
 
         assert avail_after["is_available"] is False
@@ -356,21 +372,21 @@ class TestCompleteBookingFlow:
         """Test that partial date overlap is correctly detected."""
         from src.tools.reservations import create_reservation
 
-        # First booking for July 15-20
+        # First booking for days 14-19 (available range)
         res1 = create_reservation(
             guest_id="guest-1",
-            check_in="2025-07-15",
-            check_out="2025-07-20",
+            check_in=_date_str(14),
+            check_out=_date_str(19),
             num_adults=2,
         )
 
         assert res1["status"] == "success"
 
-        # Second booking with overlapping dates (July 18-25)
+        # Second booking with overlapping dates (days 17-24)
         res2 = create_reservation(
             guest_id="guest-2",
-            check_in="2025-07-18",
-            check_out="2025-07-25",
+            check_in=_date_str(17),
+            check_out=_date_str(24),
             num_adults=2,
         )
 
@@ -457,8 +473,8 @@ class TestReservationValidation:
 
         result = create_reservation(
             guest_id="guest-123",
-            check_in="2025-07-15",
-            check_out="2025-07-10",  # Before check-in
+            check_in=_date_str(14),
+            check_out=_date_str(9),  # Before check-in
             num_adults=2,
         )
 
@@ -491,8 +507,8 @@ class TestReservationValidation:
 
         result = create_reservation(
             guest_id="guest-123",
-            check_in="2025-07-01",
-            check_out="2025-07-05",
+            check_in=_date_str(0),
+            check_out=_date_str(4),
             num_adults=0,
         )
 
@@ -508,8 +524,8 @@ class TestReservationValidation:
 
         result = create_reservation(
             guest_id="guest-123",
-            check_in="2025-07-01",
-            check_out="2025-07-05",
+            check_in=_date_str(0),
+            check_out=_date_str(4),
             num_adults=5,
             num_children=3,  # Total 8, exceeds 6 max
         )
@@ -530,11 +546,11 @@ class TestPaymentProcessing:
         from src.tools.reservations import create_reservation, get_reservation
         from src.tools.payments import process_payment
 
-        # Create reservation
+        # Create reservation (days 24-29, available range)
         res_result = create_reservation(
             guest_id="guest-123",
-            check_in="2025-07-25",
-            check_out="2025-07-30",
+            check_in=_date_str(24),
+            check_out=_date_str(29),
             num_adults=2,
         )
 
@@ -603,8 +619,8 @@ class TestConcurrentBookingPrevention:
         def make_reservation(guest_id: str) -> dict[str, Any]:
             return create_reservation(
                 guest_id=guest_id,
-                check_in="2025-07-27",
-                check_out="2025-07-30",
+                check_in=_date_str(26),
+                check_out=_date_str(29),
                 num_adults=2,
             )
 
@@ -649,16 +665,16 @@ class TestConcurrentBookingPrevention:
         def reservation_early() -> dict[str, Any]:
             return create_reservation(
                 guest_id="guest-early",
-                check_in="2025-07-21",
-                check_out="2025-07-24",  # July 21-23
+                check_in=_date_str(20),
+                check_out=_date_str(23),  # days 20-22
                 num_adults=2,
             )
 
         def reservation_late() -> dict[str, Any]:
             return create_reservation(
                 guest_id="guest-late",
-                check_in="2025-07-23",
-                check_out="2025-07-26",  # July 23-25, overlaps on 23
+                check_in=_date_str(22),
+                check_out=_date_str(25),  # days 22-24, overlaps on 22
                 num_adults=2,
             )
 
@@ -696,11 +712,11 @@ class TestConcurrentBookingPrevention:
         """
         from src.tools.reservations import create_reservation
 
-        # First booking
+        # First booking (days 27-30)
         res1 = create_reservation(
             guest_id="guest-first",
-            check_in="2025-07-28",
-            check_out="2025-07-31",
+            check_in=_date_str(27),
+            check_out=_date_str(30),
             num_adults=2,
         )
 
@@ -710,8 +726,8 @@ class TestConcurrentBookingPrevention:
         # Second booking for overlapping dates - should fail on availability check
         res2 = create_reservation(
             guest_id="guest-second",
-            check_in="2025-07-29",
-            check_out="2025-07-31",  # Overlaps with 29, 30
+            check_in=_date_str(28),
+            check_out=_date_str(30),  # Overlaps with 28, 29
             num_adults=2,
         )
 
@@ -734,16 +750,16 @@ class TestConcurrentBookingPrevention:
         def reservation_early() -> dict[str, Any]:
             return create_reservation(
                 guest_id="guest-a",
-                check_in="2025-07-01",
-                check_out="2025-07-03",
+                check_in=_date_str(0),
+                check_out=_date_str(2),
                 num_adults=2,
             )
 
         def reservation_late() -> dict[str, Any]:
             return create_reservation(
                 guest_id="guest-b",
-                check_in="2025-07-05",
-                check_out="2025-07-07",  # No overlap
+                check_in=_date_str(4),
+                check_out=_date_str(6),  # No overlap
                 num_adults=2,
             )
 
