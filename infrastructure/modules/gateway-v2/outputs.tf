@@ -40,3 +40,8 @@ output "oauth2_callback_url" {
   description = "Full OAuth2 callback URL for Cognito"
   value       = "${aws_apigatewayv2_api.main.api_endpoint}/api/auth/callback"
 }
+
+output "lambda_layer_arn" {
+  description = "Lambda layer ARN with dependencies"
+  value       = module.lambda_layer.lambda_layer_arn
+}

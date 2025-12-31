@@ -553,7 +553,8 @@ module "gateway_v2" {
   # Backend source for Lambda build
   backend_source_dir = "${path.module}/../backend"
 
-  # DynamoDB OAuth2 sessions table (for session_id → guest_email correlation)
+  # DynamoDB configuration (for session lookup by auth.py)
+  dynamodb_table_prefix      = module.dynamodb.table_prefix
   oauth2_sessions_table_name = module.dynamodb.oauth2_sessions_table_name
   oauth2_sessions_table_arn  = module.dynamodb.oauth2_sessions_table_arn
 
@@ -563,4 +564,7 @@ module "gateway_v2" {
 
   # Frontend URL for post-auth redirect
   frontend_url = module.static_website.website_url
+
+  # OpenAPI generation for API Gateway (generates routes from FastAPI app)
+  enable_openapi_generation = true
 }

@@ -17,6 +17,7 @@ An AI agent-driven vacation rental booking platform where the conversational age
 
 ### Backend
 - **Framework**: Strands Agents (Python 3.13+)
+- **Package Manager**: UV workspaces (3 packages: `shared`, `api`, `agent`)
 - **API**: FastAPI for REST endpoints
 - **Data Validation**: Pydantic v2 (strict mode)
 - **LLM**: Amazon Bedrock (Claude Sonnet)
@@ -143,16 +144,17 @@ module "lambda" {
   version = "~> 8.1"
 
   function_name = "my-function"
-  handler       = "app.handler"
+  handler       = "api.main.handler"
   runtime       = "python3.13"
 
-  # Let the module build the package declaratively
+  # UV workspace: include only needed packages (api + shared)
+  # Dependencies provided via separate Lambda layer
   source_path = [
-    {
-      path             = "${path.module}/../backend/src"
-      pip_requirements = "${path.module}/../backend/requirements-api.txt"
-    }
+    { path = "${path.module}/../backend/api/src" },
+    { path = "${path.module}/../backend/shared/src" }
   ]
+
+  layers = [module.lambda_layer.lambda_layer_arn]
 }
 ```
 
@@ -190,12 +192,12 @@ task tf:destroy:dev   # Destroy (careful!)
 task tf:output:dev    # Show outputs
 task tf:envs          # List available environments
 
-# Backend
-task backend:install  # Install Python deps with uv
+# Backend (UV workspace)
+task backend:install  # Install all packages with `uv sync`
 task backend:dev      # Run FastAPI dev server on :3001
 task backend:test     # Run pytest
 task backend:lint     # Run ruff
-task backend:typecheck # Run mypy
+task backend:typecheck # Run mypy on shared/src api/src agent/src
 
 # Frontend
 task frontend:install # Install deps with Yarn
@@ -220,19 +222,31 @@ task seed:dev         # Seed dev database
 booking/
 ├── Taskfile.yaml           # ⚠️ ALL terraform commands via this
 ├── CLAUDE.md               # This file
-├── backend/
-│   ├── src/
-│   │   ├── agent/          # Strands agent definition
-│   │   │   └── prompts/    # System prompts
-│   │   ├── tools/          # @tool decorated functions
-│   │   ├── models/         # Pydantic models
-│   │   ├── services/       # Business logic
-│   │   └── api/            # FastAPI endpoints
-│   ├── tests/
-│   │   ├── unit/
-│   │   ├── integration/
-│   │   └── contract/
-│   └── pyproject.toml
+├── backend/                # UV workspace root
+│   ├── pyproject.toml      # Workspace definition (members: agent, api, shared)
+│   ├── shared/             # Shared components package
+│   │   ├── pyproject.toml
+│   │   └── src/shared/
+│   │       ├── models/     # Pydantic data models
+│   │       ├── services/   # Business logic (DynamoDB, booking, etc.)
+│   │       ├── tools/      # @tool decorated functions
+│   │       └── utils/      # Utilities (JWT, etc.)
+│   ├── api/                # FastAPI REST API package
+│   │   ├── pyproject.toml
+│   │   └── src/api/
+│   │       ├── main.py     # FastAPI app + Mangum handler
+│   │       ├── routes/     # API routers (auth, health)
+│   │       └── middleware/ # Request/response middleware
+│   ├── agent/              # Strands Agent package
+│   │   ├── pyproject.toml
+│   │   └── src/agent/
+│   │       ├── main.py     # Lambda handler
+│   │       ├── booking_agent.py
+│   │       └── prompts/    # System prompts
+│   └── tests/
+│       ├── unit/
+│       ├── integration/
+│       └── contract/
 ├── frontend/
 │   ├── src/
 │   │   ├── app/            # Next.js App Router
@@ -311,7 +325,7 @@ Tools are Python functions with `@tool` decorator. Categories:
 This avoids ~100-200ms boto3 re-instantiation overhead per tool call:
 
 ```python
-from src.services.dynamodb import get_dynamodb_service
+from shared.services.dynamodb import get_dynamodb_service
 
 def _get_db():
     """Get shared DynamoDB service instance (singleton for performance)."""
@@ -327,10 +341,10 @@ def my_tool():
 
 **All tools MUST return `ToolError` for error conditions.**
 
-Standard error response format defined in `backend/src/models/errors.py`:
+Standard error response format defined in `backend/shared/src/shared/models/errors.py`:
 
 ```python
-from src.models.errors import ErrorCode, ToolError
+from shared.models.errors import ErrorCode, ToolError
 
 # Return structured error
 if not reservation:
@@ -441,7 +455,10 @@ This project follows the Booking Constitution (v1.1.0):
 - Python 3.13+ (backend), TypeScript 5.x strict mode (frontend) + strands-agents, boto3 (cognito-idp), pyjwt (backend); Vercel AI SDK v6, @aws-sdk/client-bedrock-agentcore (frontend) (004-jwt-session-auth)
 - AWS Cognito User Pool (EMAIL_OTP), localStorage (browser session), DynamoDB (guests table) (004-jwt-session-auth)
 - N/A (AgentCore Identity manages token vault; Cognito manages users) (005-agentcore-amplify-oauth2)
+- Python 3.13+ + UV workspaces, FastAPI, Pydantic v2 (backend); HCL (Terraform >= 1.5.0) (infrastructure) (006-backend-workspace-openapi)
+- AWS API Gateway HTTP API (OpenAPI-provisioned), AWS Cognito JWT authorizer (006-backend-workspace-openapi)
 
 ## Recent Changes
+- 006-backend-workspace-openapi: Restructured backend into UV workspace (agent, api, shared); API Gateway provisioned via OpenAPI with JWT authorizer
 - 004-jwt-session-auth: Added JWT token delivery from backend to frontend, TokenDeliveryEvent in tool responses, auth_token in transport payload
 - 002-static-website-waf: Added HCL (Terraform >= 1.5.0) + cloudposse/waf/aws v1.17.0, cloudposse/label/null ~> 0.25, terraform-aws-modules/cloudfront/aws ~> 6.0

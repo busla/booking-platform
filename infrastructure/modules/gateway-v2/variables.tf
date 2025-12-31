@@ -33,7 +33,7 @@ variable "backend_source_dir" {
 variable "handler" {
   description = "Lambda handler path (module.function)"
   type        = string
-  default     = "src.api_app.handler"
+  default     = "api.main.handler"
 }
 
 variable "runtime" {
@@ -60,7 +60,12 @@ variable "environment_vars" {
   default     = {}
 }
 
-# DynamoDB table names for Lambda environment
+# DynamoDB configuration for Lambda environment
+variable "dynamodb_table_prefix" {
+  description = "Prefix for DynamoDB table names (e.g., 'booking-dev-data')"
+  type        = string
+}
+
 variable "oauth2_sessions_table_name" {
   description = "Name of the DynamoDB table for OAuth2 sessions"
   type        = string
@@ -86,4 +91,18 @@ variable "cognito_client_id" {
 variable "frontend_url" {
   description = "Frontend URL for redirecting after OAuth2 callback"
   type        = string
+}
+
+# CORS configuration
+variable "cors_allow_origins" {
+  description = "Allowed CORS origins for API Gateway (passed to OpenAPI generation)"
+  type        = list(string)
+  default     = ["*"]
+}
+
+# OpenAPI generation configuration
+variable "enable_openapi_generation" {
+  description = "Enable OpenAPI-based API Gateway provisioning (vs catch-all routing)"
+  type        = bool
+  default     = true
 }

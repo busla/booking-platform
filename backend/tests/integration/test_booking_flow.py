@@ -291,9 +291,9 @@ class TestCompleteBookingFlow:
     ) -> None:
         """Test the complete happy path: availability → reservation → payment."""
         # Import tools here to ensure moto is active
-        from src.tools.availability import check_availability
-        from src.tools.reservations import create_reservation
-        from src.tools.payments import process_payment
+        from shared.tools.availability import check_availability
+        from shared.tools.reservations import create_reservation
+        from shared.tools.payments import process_payment
 
         # Step 1: Check availability (days 0-4, all available)
         avail_result = check_availability(
@@ -341,8 +341,8 @@ class TestCompleteBookingFlow:
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that booking unavailable dates fails gracefully."""
-        from src.tools.availability import check_availability
-        from src.tools.reservations import create_reservation
+        from shared.tools.availability import check_availability
+        from shared.tools.reservations import create_reservation
 
         # Step 1: Check availability for booked dates (offsets 9-14, seeded as booked)
         avail_result = check_availability(
@@ -374,8 +374,8 @@ class TestCompleteBookingFlow:
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that dates are marked unavailable after successful reservation."""
-        from src.tools.availability import check_availability
-        from src.tools.reservations import create_reservation
+        from shared.tools.availability import check_availability
+        from shared.tools.reservations import create_reservation
 
         # Step 1: Verify dates are available (offsets 19-24, available range)
         avail_before = check_availability(
@@ -411,7 +411,7 @@ class TestCompleteBookingFlow:
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that partial date overlap is correctly detected."""
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         # First booking for days 14-19 (available range)
         res1 = await create_reservation(
@@ -448,7 +448,7 @@ class TestGuestVerificationFlow:
         dynamodb_tables: Any,
     ) -> None:
         """Test initiate → verify code flow."""
-        from src.tools.guest import initiate_verification, verify_code
+        from shared.tools.guest import initiate_verification, verify_code
 
         email = "test@example.com"
 
@@ -486,7 +486,7 @@ class TestGuestVerificationFlow:
         dynamodb_tables: Any,
     ) -> None:
         """Test that wrong verification code is rejected."""
-        from src.tools.guest import initiate_verification, verify_code
+        from shared.tools.guest import initiate_verification, verify_code
 
         email = "test2@example.com"
 
@@ -513,7 +513,7 @@ class TestReservationValidation:
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that checkout date before checkin is rejected."""
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         result = await create_reservation(
             check_in=_date_str(14),
@@ -532,7 +532,7 @@ class TestReservationValidation:
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that invalid date format is rejected."""
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         result = await create_reservation(
             check_in="15/07/2025",  # Wrong format
@@ -551,7 +551,7 @@ class TestReservationValidation:
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that zero adult guests is rejected."""
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         result = await create_reservation(
             check_in=_date_str(0),
@@ -570,7 +570,7 @@ class TestReservationValidation:
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that exceeding max guest limit is rejected."""
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         result = await create_reservation(
             check_in=_date_str(0),
@@ -595,8 +595,8 @@ class TestPaymentProcessing:
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that payment updates reservation status to confirmed."""
-        from src.tools.reservations import create_reservation, get_reservation
-        from src.tools.payments import process_payment
+        from shared.tools.reservations import create_reservation, get_reservation
+        from shared.tools.payments import process_payment
 
         # Create reservation (days 24-29, available range)
         res_result = await create_reservation(
@@ -633,7 +633,7 @@ class TestPaymentProcessing:
         dynamodb_tables: Any,
     ) -> None:
         """Test that payment for non-existent reservation fails."""
-        from src.tools.payments import process_payment
+        from shared.tools.payments import process_payment
 
         payment_result = process_payment(
             reservation_id="RES-NONEXISTENT",
@@ -670,7 +670,7 @@ class TestConcurrentBookingPrevention:
         with condition checks should ensure only one succeeds.
         """
         import asyncio
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         async def make_reservation() -> dict[str, Any]:
             return await create_reservation(
@@ -711,7 +711,7 @@ class TestConcurrentBookingPrevention:
         to prevent any date conflicts.
         """
         import asyncio
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         async def reservation_early() -> dict[str, Any]:
             return await create_reservation(
@@ -759,7 +759,7 @@ class TestConcurrentBookingPrevention:
         This is a cleaner test - first booking succeeds, second fails
         with DATES_UNAVAILABLE because the availability check catches it.
         """
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         # First booking (days 27-30)
         res1 = await create_reservation(
@@ -796,7 +796,7 @@ class TestConcurrentBookingPrevention:
     ) -> None:
         """Test that concurrent bookings for different dates both succeed."""
         import asyncio
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         async def reservation_early() -> dict[str, Any]:
             return await create_reservation(

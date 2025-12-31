@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.models.oauth2_session import OAuth2Session, OAuth2SessionCreate, OAuth2SessionStatus
+from shared.models.oauth2_session import OAuth2Session, OAuth2SessionCreate, OAuth2SessionStatus
 
 
 class TestCreateOAuth2Session:
@@ -28,7 +28,7 @@ class TestCreateOAuth2Session:
         mock_dynamodb_table: MagicMock,
     ) -> None:
         """Should store session with all required fields."""
-        from src.services.dynamodb import DynamoDBService
+        from shared.services.dynamodb import DynamoDBService
 
         # Given: Valid session creation data
         session_data = OAuth2SessionCreate(
@@ -59,7 +59,7 @@ class TestCreateOAuth2Session:
         mock_dynamodb_table: MagicMock,
     ) -> None:
         """Should set expires_at to 10 minutes from creation."""
-        from src.services.dynamodb import DynamoDBService
+        from shared.services.dynamodb import DynamoDBService
 
         # Given: Session creation data
         session_data = OAuth2SessionCreate(
@@ -89,7 +89,7 @@ class TestGetOAuth2Session:
         mock_dynamodb_table: MagicMock,
     ) -> None:
         """Should return session when found by session_id."""
-        from src.services.dynamodb import DynamoDBService
+        from shared.services.dynamodb import DynamoDBService
 
         # Given: Session exists in DynamoDB
         session_id = "session-existing"
@@ -120,7 +120,7 @@ class TestGetOAuth2Session:
         mock_dynamodb_table: MagicMock,
     ) -> None:
         """Should return None when session_id doesn't exist."""
-        from src.services.dynamodb import DynamoDBService
+        from shared.services.dynamodb import DynamoDBService
 
         # Given: No session in DynamoDB
         mock_dynamodb_table.get_item.return_value = {}
@@ -142,7 +142,7 @@ class TestUpdateOAuth2SessionStatus:
         mock_dynamodb_table: MagicMock,
     ) -> None:
         """Should update status to COMPLETED."""
-        from src.services.dynamodb import DynamoDBService
+        from shared.services.dynamodb import DynamoDBService
 
         # Given: Session exists
         session_id = "session-to-complete"
@@ -169,7 +169,7 @@ class TestUpdateOAuth2SessionStatus:
         mock_dynamodb_table: MagicMock,
     ) -> None:
         """Should update status to FAILED when auth fails."""
-        from src.services.dynamodb import DynamoDBService
+        from shared.services.dynamodb import DynamoDBService
 
         # Given: Session exists
         session_id = "session-to-fail"

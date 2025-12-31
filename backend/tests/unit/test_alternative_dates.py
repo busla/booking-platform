@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.models import Availability, AvailabilityStatus
-from src.services.availability import AvailabilityService
+from shared.models import Availability, AvailabilityStatus
+from shared.services.availability import AvailabilityService
 
 
 @pytest.fixture

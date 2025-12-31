@@ -8,7 +8,7 @@ using the SlidingWindowConversationManager.
 import pytest
 from unittest.mock import patch, MagicMock
 
-from src.agent.booking_agent import get_agent, reset_agent, create_booking_agent
+from agent.booking_agent import get_agent, reset_agent, create_booking_agent
 
 
 class TestConversationContext:

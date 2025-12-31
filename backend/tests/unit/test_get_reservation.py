@@ -10,16 +10,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.models.enums import PaymentStatus, ReservationStatus
+from shared.models.enums import PaymentStatus, ReservationStatus
 
 
 class TestGetReservation:
     """Tests for the get_reservation tool."""
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     def test_get_reservation_success(self, mock_get_db: MagicMock) -> None:
         """Should return reservation details successfully."""
-        from src.tools.reservations import get_reservation
+        from shared.tools.reservations import get_reservation
 
         # Setup mock
         mock_db = MagicMock()
@@ -52,10 +52,10 @@ class TestGetReservation:
         assert result["num_children"] == 1
         assert result["total_amount_eur"] == 890.0
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     def test_get_reservation_not_found(self, mock_get_db: MagicMock) -> None:
         """Should return error when reservation not found."""
-        from src.tools.reservations import get_reservation
+        from shared.tools.reservations import get_reservation
 
         # Setup mock to return None (not found)
         mock_db = MagicMock()
@@ -70,12 +70,12 @@ class TestGetReservation:
         assert result["error_code"] == "ERR_006"  # RESERVATION_NOT_FOUND
         assert "not found" in result["message"].lower()
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     def test_get_reservation_includes_payment_status(
         self, mock_get_db: MagicMock
     ) -> None:
         """Should include payment status in response."""
-        from src.tools.reservations import get_reservation
+        from shared.tools.reservations import get_reservation
 
         # Setup mock
         mock_db = MagicMock()
@@ -101,10 +101,10 @@ class TestGetReservation:
         assert result["payment_status"] == PaymentStatus.PENDING.value
         assert result["reservation_status"] == ReservationStatus.PENDING.value
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     def test_get_reservation_includes_message(self, mock_get_db: MagicMock) -> None:
         """Should include helpful message in response."""
-        from src.tools.reservations import get_reservation
+        from shared.tools.reservations import get_reservation
 
         # Setup mock
         mock_db = MagicMock()
@@ -134,10 +134,10 @@ class TestGetReservation:
 class TestGetReservationScenarios:
     """Scenario-based tests for get_reservation."""
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     def test_guest_checks_upcoming_booking(self, mock_get_db: MagicMock) -> None:
         """Guest asking 'What's my booking?' should get reservation details."""
-        from src.tools.reservations import get_reservation
+        from shared.tools.reservations import get_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
@@ -162,10 +162,10 @@ class TestGetReservationScenarios:
         assert result["num_adults"] == 2
         assert result["num_children"] == 2
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     def test_guest_checks_pending_payment(self, mock_get_db: MagicMock) -> None:
         """Guest with pending payment should see payment reminder."""
-        from src.tools.reservations import get_reservation
+        from shared.tools.reservations import get_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = {

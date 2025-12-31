@@ -1,7 +1,3 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
 name = "booking-backend"
 version = "0.1.0"
@@ -16,19 +12,18 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 
+# Workspace root depends on all members for unified testing
 dependencies = [
-  "strands-agents>=0.1.0",
-  "strands-agents-tools>=0.1.0",
-  "bedrock-agentcore>=0.1.0",
-  "boto3>=1.35.0",
-  "pydantic>=2.0.0",
-  "email-validator>=2.0.0",
-  "fastapi>=0.115.0",
-  "uvicorn[standard]>=0.32.0",
-  "python-dotenv>=1.0.0",
-  "pyjwt>=2.8.0",
-  "mangum",
+  "shared",
+  "api",
+  "agent",
 ]
+
+# Workspace dependency sources
+[tool.uv.sources]
+shared = { workspace = true }
+api = { workspace = true }
+agent = { workspace = true }
 
 [project.optional-dependencies]
 dev = [
@@ -41,18 +36,17 @@ dev = [
   "moto>=5.0.0",
   "httpx>=0.28.0",
   "pydantic-to-typescript>=1.0.10",
+  "jsonschema>=4.0.0",
 ]
 
-[project.scripts]
-booking-agent = "src.api_app:run_server"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src"]
+# UV Workspace configuration - declares the three package members
+[tool.uv.workspace]
+members = ["agent", "api", "shared"]
 
 [tool.ruff]
 target-version = "py313"
 line-length = 100
-src = ["src", "tests"]
+src = ["shared/src", "api/src", "agent/src", "tests"]
 
 [tool.ruff.lint]
 select = [
@@ -73,7 +67,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["src"]
+known-first-party = ["shared", "api", "agent"]
 
 [tool.mypy]
 python_version = "3.13"

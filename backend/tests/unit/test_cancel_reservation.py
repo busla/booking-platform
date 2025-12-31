@@ -13,18 +13,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.models.enums import PaymentStatus, ReservationStatus
+from shared.models.enums import PaymentStatus, ReservationStatus
 
 
 class TestCancelReservation:
     """Tests for the cancel_reservation tool."""
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_cancel_reservation_success(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Should cancel reservation successfully."""
-        from src.tools.reservations import cancel_reservation
+        from shared.tools.reservations import cancel_reservation
 
         # Setup mock DB with guest ownership verification
         mock_db = MagicMock()
@@ -59,12 +59,12 @@ class TestCancelReservation:
         assert result.get("status") == "success" or result.get("success") is True
         assert "cancelled" in str(result.get("message", "")).lower()
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_cancel_reservation_not_found(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Should return error when reservation not found."""
-        from src.tools.reservations import cancel_reservation
+        from shared.tools.reservations import cancel_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = None
@@ -79,12 +79,12 @@ class TestCancelReservation:
         assert result["success"] is False
         assert "not found" in result["message"].lower()
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_cancel_already_cancelled_reservation(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Should not allow cancelling an already cancelled reservation."""
-        from src.tools.reservations import cancel_reservation
+        from shared.tools.reservations import cancel_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
@@ -114,12 +114,12 @@ class TestCancelReservation:
         # ToolError.UNAUTHORIZED message is "Guest not authorized for this action"
         assert "not authorized" in result["message"].lower() or "cancelled" in result["message"].lower()
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_cancel_completed_reservation_fails(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Should not allow cancelling a completed (past) reservation."""
-        from src.tools.reservations import cancel_reservation
+        from shared.tools.reservations import cancel_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
@@ -151,12 +151,12 @@ class TestCancelReservation:
 class TestCancellationPolicy:
     """Tests for cancellation policy and refund calculations."""
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_full_refund_30_days_before(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Should give full refund when cancelled 30+ days before check-in."""
-        from src.tools.reservations import cancel_reservation
+        from shared.tools.reservations import cancel_reservation
 
         mock_db = MagicMock()
         future_checkin = (datetime.now() + timedelta(days=35)).strftime("%Y-%m-%d")
@@ -189,12 +189,12 @@ class TestCancellationPolicy:
         if "refund_amount" in result:
             assert result["refund_amount"] == 89000 or result.get("refund_percentage") == 100
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_partial_refund_14_days_before(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Should give 50% refund when cancelled 14-29 days before check-in."""
-        from src.tools.reservations import cancel_reservation
+        from shared.tools.reservations import cancel_reservation
 
         mock_db = MagicMock()
         future_checkin = (datetime.now() + timedelta(days=20)).strftime("%Y-%m-%d")
@@ -227,12 +227,12 @@ class TestCancellationPolicy:
         if "refund_percentage" in result:
             assert result["refund_percentage"] == 50
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_no_refund_within_14_days(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Should give no refund when cancelled less than 14 days before check-in."""
-        from src.tools.reservations import cancel_reservation
+        from shared.tools.reservations import cancel_reservation
 
         mock_db = MagicMock()
         future_checkin = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
@@ -269,12 +269,12 @@ class TestCancellationPolicy:
 class TestCancellationAvailabilityRelease:
     """Tests for releasing dates back to available pool."""
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_releases_dates_on_cancellation(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Should release booked dates when reservation is cancelled."""
-        from src.tools.reservations import cancel_reservation
+        from shared.tools.reservations import cancel_reservation
 
         mock_db = MagicMock()
         future_checkin = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")

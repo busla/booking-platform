@@ -13,7 +13,7 @@ import pytest
 from moto import mock_aws
 
 # Import will work once tools are implemented
-# from src.tools.reservations import create_reservation
+# from shared.tools.reservations import create_reservation
 
 
 class TestCreateReservation:

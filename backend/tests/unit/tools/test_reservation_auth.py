@@ -18,8 +18,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.models.enums import PaymentStatus, ReservationStatus
-from src.utils.jwt import extract_cognito_claims, extract_cognito_sub
+from shared.models.enums import PaymentStatus, ReservationStatus
+from shared.utils.jwt import extract_cognito_claims, extract_cognito_sub
 
 
 class TestRequiresAccessTokenDecorator:
@@ -96,7 +96,7 @@ class TestRequiresAccessTokenDecorator:
 class TestCreateReservationAuthBehavior:
     """Tests for create_reservation tool's token handling."""
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_create_reservation_receives_access_token(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
@@ -105,7 +105,7 @@ class TestCreateReservationAuthBehavior:
         The mock decorator in conftest automatically injects access_token.
         This test confirms the tool receives it.
         """
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         # Setup mock DB
         mock_db = MagicMock()
@@ -133,12 +133,12 @@ class TestCreateReservationAuthBehavior:
         # Verify guest lookup was called with cognito_sub from token
         mock_db.get_guest_by_cognito_sub.assert_called_once_with("test-cognito-sub-123")
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_create_reservation_extracts_email_from_jwt(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Verify create_reservation uses email from JWT, not conversation context."""
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         mock_db = MagicMock()
         mock_db.get_guest_by_cognito_sub.return_value = {
@@ -161,12 +161,12 @@ class TestCreateReservationAuthBehavior:
         assert result.get("status") == "success"
         assert result.get("authenticated_email") == "test@example.com"
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_create_reservation_rejects_invalid_token(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Verify create_reservation handles invalid access_token gracefully."""
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -188,7 +188,7 @@ class TestCreateReservationAuthBehavior:
 class TestModifyReservationAuthBehavior:
     """Tests for modify_reservation tool's token handling."""
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_modify_reservation_verifies_ownership(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
@@ -197,7 +197,7 @@ class TestModifyReservationAuthBehavior:
         The tool should only allow modification if the JWT's cognito_sub
         matches the reservation's owner.
         """
-        from src.tools.reservations import modify_reservation
+        from shared.tools.reservations import modify_reservation
 
         mock_db = MagicMock()
         # Reservation belongs to guest-123
@@ -230,12 +230,12 @@ class TestModifyReservationAuthBehavior:
         assert result.get("status") == "success"
         mock_db.get_guest_by_cognito_sub.assert_called_once_with("test-cognito-sub-123")
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_modify_reservation_rejects_non_owner(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Verify modify_reservation rejects modification by non-owner."""
-        from src.tools.reservations import modify_reservation
+        from shared.tools.reservations import modify_reservation
 
         mock_db = MagicMock()
         # Reservation belongs to different guest
@@ -272,12 +272,12 @@ class TestModifyReservationAuthBehavior:
 class TestCancelReservationAuthBehavior:
     """Tests for cancel_reservation tool's token handling."""
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_cancel_reservation_verifies_ownership(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Verify cancel_reservation uses JWT sub to verify ownership."""
-        from src.tools.reservations import cancel_reservation
+        from shared.tools.reservations import cancel_reservation
 
         mock_db = MagicMock()
         future_checkin = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
@@ -313,7 +313,7 @@ class TestCancelReservationAuthBehavior:
 class TestGetMyReservationsAuthBehavior:
     """Tests for get_my_reservations tool's token handling."""
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_get_my_reservations_scopes_by_cognito_sub(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
@@ -322,7 +322,7 @@ class TestGetMyReservationsAuthBehavior:
         This is the 'guardrail pattern' - using JWT claims to restrict
         database queries to only the authenticated user's data.
         """
-        from src.tools.reservations import get_my_reservations
+        from shared.tools.reservations import get_my_reservations
 
         mock_db = MagicMock()
         mock_db.get_guest_by_cognito_sub.return_value = {
@@ -354,12 +354,12 @@ class TestGetMyReservationsAuthBehavior:
         # Verify reservations were queried by guest_id (derived from JWT sub)
         mock_db.get_reservations_by_guest_id.assert_called_once_with("guest-123")
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_get_my_reservations_handles_no_guest_record(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Verify get_my_reservations handles authenticated user without guest record."""
-        from src.tools.reservations import get_my_reservations
+        from shared.tools.reservations import get_my_reservations
 
         mock_db = MagicMock()
         mock_db.get_guest_by_cognito_sub.return_value = None  # No guest record
@@ -382,7 +382,7 @@ class TestDecoratorConfiguration:
         This is a static analysis test to ensure no protected tool
         accidentally loses its decorator.
         """
-        from src.tools.reservations import (
+        from shared.tools.reservations import (
             cancel_reservation,
             create_reservation,
             get_my_reservations,
@@ -409,7 +409,7 @@ class TestDecoratorConfiguration:
         get_reservation only reads a single reservation by ID and doesn't
         expose sensitive user data, so it's intentionally unprotected.
         """
-        from src.tools.reservations import get_reservation
+        from shared.tools.reservations import get_reservation
 
         # This tool should NOT have the decorator - it's synchronous and public
         # The @tool decorator is present but not @requires_access_token

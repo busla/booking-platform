@@ -13,14 +13,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.models.enums import PaymentStatus, ReservationStatus
+from shared.models.enums import PaymentStatus, ReservationStatus
 
 
 class TestModifyReservation:
     """Tests for the modify_reservation tool."""
 
-    @patch("src.tools.reservations._get_db")
-    @patch("src.tools.reservations._check_dates_available")
+    @patch("shared.tools.reservations._get_db")
+    @patch("shared.tools.reservations._check_dates_available")
     async def test_modify_dates_success(
         self,
         mock_check_available: MagicMock,
@@ -28,7 +28,7 @@ class TestModifyReservation:
         mock_tool_context: MagicMock,
     ) -> None:
         """Should modify reservation dates successfully."""
-        from src.tools.reservations import modify_reservation
+        from shared.tools.reservations import modify_reservation
 
         # Setup mock DB with guest ownership verification
         mock_db = MagicMock()
@@ -68,12 +68,12 @@ class TestModifyReservation:
         assert result.get("status") == "success" or result.get("success") is True
         assert "updated" in str(result.get("message", "")).lower()
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_modify_reservation_not_found(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Should return error when reservation not found."""
-        from src.tools.reservations import modify_reservation
+        from shared.tools.reservations import modify_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = None
@@ -90,12 +90,12 @@ class TestModifyReservation:
         assert result["success"] is False
         assert "not found" in result["message"].lower()
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_modify_cancelled_reservation_fails(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Should not allow modifying cancelled reservations."""
-        from src.tools.reservations import modify_reservation
+        from shared.tools.reservations import modify_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
@@ -127,8 +127,8 @@ class TestModifyReservation:
         # ToolError.UNAUTHORIZED message is "Guest not authorized for this action"
         assert "not authorized" in result["message"].lower() or "cancelled" in result["message"].lower()
 
-    @patch("src.tools.reservations._get_db")
-    @patch("src.tools.reservations._check_dates_available")
+    @patch("shared.tools.reservations._get_db")
+    @patch("shared.tools.reservations._check_dates_available")
     async def test_modify_dates_unavailable(
         self,
         mock_check_available: MagicMock,
@@ -136,7 +136,7 @@ class TestModifyReservation:
         mock_tool_context: MagicMock,
     ) -> None:
         """Should fail when new dates are not available."""
-        from src.tools.reservations import modify_reservation
+        from shared.tools.reservations import modify_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
@@ -168,8 +168,8 @@ class TestModifyReservation:
         assert result["success"] is False
         assert "unavailable" in result["message"].lower() or "available" in result["message"].lower()
 
-    @patch("src.tools.reservations._get_db")
-    @patch("src.tools.reservations._check_dates_available")
+    @patch("shared.tools.reservations._get_db")
+    @patch("shared.tools.reservations._check_dates_available")
     async def test_modify_guest_count(
         self,
         mock_check_available: MagicMock,
@@ -177,7 +177,7 @@ class TestModifyReservation:
         mock_tool_context: MagicMock,
     ) -> None:
         """Should allow modifying guest count."""
-        from src.tools.reservations import modify_reservation
+        from shared.tools.reservations import modify_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
@@ -209,12 +209,12 @@ class TestModifyReservation:
 
         assert result.get("status") == "success" or result.get("success") is True
 
-    @patch("src.tools.reservations._get_db")
+    @patch("shared.tools.reservations._get_db")
     async def test_modify_exceeds_max_guests(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
         """Should fail when new guest count exceeds maximum."""
-        from src.tools.reservations import modify_reservation
+        from shared.tools.reservations import modify_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
@@ -248,9 +248,9 @@ class TestModifyReservation:
 class TestModifyReservationPriceRecalculation:
     """Tests for price recalculation on modification."""
 
-    @patch("src.tools.reservations._get_db")
-    @patch("src.tools.reservations._check_dates_available")
-    @patch("src.tools.reservations._get_pricing_for_dates")
+    @patch("shared.tools.reservations._get_db")
+    @patch("shared.tools.reservations._check_dates_available")
+    @patch("shared.tools.reservations._get_pricing_for_dates")
     async def test_price_recalculation_longer_stay(
         self,
         mock_pricing: MagicMock,
@@ -259,7 +259,7 @@ class TestModifyReservationPriceRecalculation:
         mock_tool_context: MagicMock,
     ) -> None:
         """Should recalculate price when extending stay."""
-        from src.tools.reservations import modify_reservation
+        from shared.tools.reservations import modify_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = {

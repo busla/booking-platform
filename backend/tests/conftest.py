@@ -72,7 +72,7 @@ patch("bedrock_agentcore.identity.requires_access_token", _mock_requires_access_
 # Clear any cached imports of tools module to ensure decorator mock is applied
 # This handles cases where pytest might have pre-imported the module
 for module_name in list(sys.modules.keys()):
-    if module_name.startswith("src.tools"):
+    if module_name.startswith("shared.tools"):
         del sys.modules[module_name]
 
 # === Environment Setup ===
@@ -107,7 +107,7 @@ def reset_dynamodb_singleton() -> Generator[None, None, None]:
     inside the mock context rather than reusing a singleton from
     a previous test or non-mocked context.
     """
-    from src.services.dynamodb import reset_dynamodb_service
+    from shared.services.dynamodb import reset_dynamodb_service
 
     reset_dynamodb_service()
     yield

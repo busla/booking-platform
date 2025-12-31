@@ -2,45 +2,115 @@
 
 Agent-First Vacation Rental Booking Platform - Backend powered by Strands Agents.
 
+## Architecture
+
+This backend uses a **UV workspace** with three packages:
+
+| Package | Purpose | Entry Point |
+|---------|---------|-------------|
+| `shared` | Models, services, tools | `from shared.models import ...` |
+| `api` | FastAPI REST endpoints | `api.main:app` |
+| `agent` | Strands agent definition | `agent.main:handler` |
+
 ## Setup
 
 ```bash
-# Create virtual environment
-uv venv
-source .venv/bin/activate
+# Install uv (if not installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install dependencies
-uv pip install -e ".[dev]"
+# Create virtual environment and install all packages
+uv sync
+
+# Or install with dev dependencies
+uv sync --dev
 ```
 
 ## Development
 
 ```bash
-# Run development server
-python -m uvicorn src.api:app --reload --port 3001
+# Run API development server
+uv run --package api uvicorn api.main:app --reload --port 3001
 
-# Run tests
-pytest
+# Run tests (from workspace root)
+uv run pytest
 
 # Run linting
-ruff check src tests
+uv run ruff check .
 
 # Run type checking
-mypy src
+uv run mypy shared/src api/src agent/src
 ```
 
-## Project Structure
+## Package Details
+
+### `shared/` - Shared Components
+
+Common code used by both `api` and `agent`:
 
 ```
-backend/
-├── src/
-│   ├── agent/        # Strands agent definition
-│   ├── tools/        # @tool decorated functions
-│   ├── models/       # Pydantic data models
-│   ├── services/     # Business logic
-│   └── api/          # FastAPI endpoints
-└── tests/
-    ├── unit/
-    ├── integration/
-    └── contract/
+shared/src/shared/
+├── models/          # Pydantic data models
+│   ├── auth.py
+│   ├── guest.py
+│   ├── reservation.py
+│   └── ...
+├── services/        # Business logic
+│   ├── dynamodb.py
+│   ├── booking.py
+│   └── ...
+├── tools/           # @tool decorated functions
+│   ├── availability.py
+│   ├── reservations.py
+│   └── ...
+└── utils/           # Utilities (JWT, etc.)
 ```
+
+### `api/` - FastAPI REST API
+
+Deployed to AWS Lambda via API Gateway:
+
+```
+api/src/api/
+├── main.py          # FastAPI app + Mangum handler
+├── routes/          # API routers
+│   ├── auth.py      # /auth/* endpoints
+│   └── health.py    # /health endpoint
+├── middleware/      # Request/response middleware
+└── scripts/         # OpenAPI generation
+```
+
+### `agent/` - Strands Agent
+
+Deployed to AgentCore Runtime:
+
+```
+agent/src/agent/
+├── main.py          # Lambda handler
+├── booking_agent.py # Agent definition
+└── prompts/         # System prompts
+    └── system_prompt.md
+```
+
+## Testing
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run specific test type
+uv run pytest tests/unit/
+uv run pytest tests/integration/
+uv run pytest tests/contract/
+
+# Run with coverage
+uv run pytest --cov=shared --cov=api --cov=agent
+```
+
+## Infrastructure
+
+The backend is deployed via Terraform:
+
+- **API Lambda**: `infrastructure/modules/gateway-v2/` - FastAPI + API Gateway
+- **Agent**: `infrastructure/main.tf` - AgentCore Runtime via `terraform-aws-agentcore`
+
+See `task tf:apply:dev` in root `Taskfile.yaml` for deployment commands.
