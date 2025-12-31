@@ -3,89 +3,110 @@
 These tools allow the booking agent to create reservations,
 check reservation details, and manage bookings with double-booking prevention.
 
-Tools that modify reservations (create, modify, cancel) require authentication.
-Users must be logged in via Cognito EMAIL_OTP and pass their JWT token in the
-request payload's `auth_token` field. The token is validated using `extract_cognito_sub`.
+Tools that modify reservations (create, modify, cancel) require authentication
+via AgentCore Identity OAuth2 with USER_FEDERATION flow. The @requires_access_token
+decorator handles token retrieval from the TokenVault and initiates OAuth2 3LO
+flow when user consent is needed.
 
-Authentication Architecture:
-- Frontend authenticates user via Cognito EMAIL_OTP (initiate_cognito_login/verify_cognito_otp)
-- Frontend stores JWT tokens (id_token, access_token, refresh_token) in localStorage
-- Frontend passes id_token in `auth_token` field when invoking authenticated tools
-- Backend extracts cognito_sub from token to identify user
-- If no valid token, backend returns `auth_required` response for frontend to handle
+Authentication Architecture (Spec 005 - AgentCore Identity OAuth2):
+- Tools are decorated with @requires_access_token(auth_flow="USER_FEDERATION")
+- Decorator checks TokenVault for existing token
+- If no token, decorator generates authorization URL via on_auth_url callback
+- Authorization URL is streamed to user via shared auth queue
+- User completes OAuth2 login (Amplify EMAIL_OTP) in browser
+- Frontend callback page calls CompleteResourceTokenAuth to bind token
+- Decorator polling succeeds, tool executes with injected access_token
+- Tool extracts cognito_sub/email from JWT to scope DynamoDB queries
 
-Note: AgentCore Identity OAuth2 (@requires_access_token) was removed because it's
-designed for external service authentication (Google, GitHub, etc.), not for
-authenticating our own users. Cognito EMAIL_OTP is the correct approach.
+The auth URL queue is set by the entrypoint (agent_app.py) at invocation start.
 """
 
+import asyncio
 import logging
 import os
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+from bedrock_agentcore.identity import requires_access_token
 from strands import ToolContext, tool
 
 from src.models.enums import AvailabilityStatus, PaymentStatus, ReservationStatus
 from src.models.errors import ErrorCode, ToolError
 from src.models.reservation import Reservation
 from src.services.dynamodb import DynamoDBService, get_dynamodb_service
-from src.utils.jwt import extract_cognito_claims
+from src.utils.jwt import extract_cognito_claims, extract_cognito_sub
 
 logger = logging.getLogger(__name__)
 
-# Frontend login URL for auth_required responses
-FRONTEND_LOGIN_URL = os.environ.get("FRONTEND_LOGIN_URL", "/auth/login")
+# -----------------------------------------------------------------------------
+# AgentCore Identity OAuth2 Configuration
+# -----------------------------------------------------------------------------
+
+# Shared queue for streaming auth URLs to the entrypoint
+# Set by agent_app.py at invocation start via set_auth_url_queue()
+_auth_url_queue: asyncio.Queue[str] | None = None
+
+
+def set_auth_url_queue(queue: asyncio.Queue[str] | None) -> None:
+    """Set the shared queue for streaming auth URLs to the entrypoint.
+
+    Called by agent_app.py at the start of each invocation to enable
+    auth URL streaming from @requires_access_token callbacks.
+
+    Args:
+        queue: asyncio.Queue to put auth URLs into, or None to disable
+    """
+    global _auth_url_queue
+    _auth_url_queue = queue
+
+
+async def _handle_auth_url(url: str) -> None:
+    """Callback for @requires_access_token to stream auth URL to client.
+
+    This is called by the decorator when user consent is needed for OAuth2.
+    The URL is put into the shared queue, which the entrypoint yields to
+    the client as an auth event.
+
+    Args:
+        url: Authorization URL for user to complete OAuth2 login
+    """
+    logger.info("[OAUTH2_AUTH_URL] _handle_auth_url CALLED with URL: %s", url[:100] if url else "(empty)")
+    if _auth_url_queue is not None:
+        logger.info("[OAUTH2_AUTH_URL] Streaming auth URL to client (queue available)")
+        await _auth_url_queue.put(url)
+    else:
+        # Fallback: log the URL (shouldn't happen in production)
+        logger.warning("[OAUTH2_AUTH_URL] Auth URL generated but no queue available: %s", url[:100])
+
+
+# OAuth2 configuration from environment (set by Terraform)
+OAUTH2_PROVIDER_NAME = os.environ.get("AGENTCORE_OAUTH2_PROVIDER_NAME", "")
+OAUTH2_CALLBACK_URL = os.environ.get("AGENTCORE_OAUTH2_CALLBACK_URL", "")
+
+# Log OAuth2 configuration at import time for debugging
+logger.info(
+    "[OAUTH2_CONFIG] Module import - provider_name='%s', callback_url='%s'",
+    OAUTH2_PROVIDER_NAME or "(empty)",
+    OAUTH2_CALLBACK_URL[:50] + "..." if len(OAUTH2_CALLBACK_URL) > 50 else OAUTH2_CALLBACK_URL or "(empty)",
+)
+
+# CRITICAL: Warn if OAuth2 env vars are missing - this will cause decorator to fail
+if not OAUTH2_PROVIDER_NAME:
+    logger.error(
+        "[OAUTH2_CONFIG] CRITICAL: AGENTCORE_OAUTH2_PROVIDER_NAME env var is empty! "
+        "create_reservation tool will fail. Check Terraform deployment."
+    )
+if not OAUTH2_CALLBACK_URL:
+    logger.error(
+        "[OAUTH2_CONFIG] CRITICAL: AGENTCORE_OAUTH2_CALLBACK_URL env var is empty! "
+        "create_reservation tool will fail. Check Terraform deployment."
+    )
 
 
 def _get_db() -> DynamoDBService:
     """Get shared DynamoDB service instance (singleton for performance)."""
     return get_dynamodb_service()
-
-
-def _get_auth_token(tool_context: ToolContext | None) -> str | None:
-    """Get auth_token from ToolContext agent state.
-
-    T044: Tools read auth_token from agent state, set by agent_app.py
-    from the request payload. This avoids relying on LLM to pass the token.
-
-    Args:
-        tool_context: Strands ToolContext (from @tool(context=True))
-
-    Returns:
-        JWT auth token if present in agent state, None otherwise
-    """
-    if tool_context is None:
-        return None
-    token = tool_context.agent.state.get("auth_token")
-    # State.get() returns Any, but auth_token is always str or None
-    return token if isinstance(token, str) else None
-
-
-def _auth_required_response(reason: str = "complete your booking") -> str:
-    """Return auth_required response as text with embedded redirect marker.
-
-    Following AgentCore samples pattern: return text with embedded URL
-    that the frontend can parse and trigger a redirect.
-
-    The marker format [AUTH_REDIRECT:url] allows the frontend to:
-    1. Detect that authentication is required
-    2. Extract the redirect URL
-    3. Automatically redirect to login
-
-    Args:
-        reason: Why authentication is needed (for message)
-
-    Returns:
-        Text with embedded AUTH_REDIRECT marker for frontend parsing
-    """
-    return (
-        f"🔐 **Authentication Required**\n\n"
-        f"To {reason}, please log in first. "
-        f"I'll send a verification code to your email.\n\n"
-        f"[AUTH_REDIRECT:{FRONTEND_LOGIN_URL}]"
-    )
 
 
 def _parse_date(date_str: str) -> date:
@@ -137,13 +158,22 @@ def _get_pricing_for_dates(check_in: date, check_out: date) -> tuple[int, int]: 
 
 
 @tool(context=True)
-def create_reservation(
+@requires_access_token(
+    provider_name=OAUTH2_PROVIDER_NAME,
+    scopes=["openid", "email"],
+    auth_flow="USER_FEDERATION",
+    on_auth_url=_handle_auth_url,
+    callback_url=OAUTH2_CALLBACK_URL,
+)
+async def create_reservation(
     check_in: str,
     check_out: str,
     num_adults: int,
-    tool_context: ToolContext,
+    tool_context: ToolContext,  # noqa: ARG001 - Required by @tool(context=True)
     num_children: int = 0,
     special_requests: str | None = None,
+    *,
+    access_token: str,
 ) -> dict[str, Any]:
     """Create a new reservation with double-booking prevention.
 
@@ -154,8 +184,9 @@ def create_reservation(
     IMPORTANT: Only call this after the guest has confirmed they want to book.
     First use check_availability to verify dates are available.
 
-    The user must be authenticated. If not logged in, returns auth_required
-    response and the agent should guide the user to log in first.
+    Authentication is handled automatically via @requires_access_token decorator.
+    If the user is not logged in, an authorization URL will be streamed to the
+    client for them to complete OAuth2 login.
 
     Args:
         check_in: Check-in date in YYYY-MM-DD format (e.g., '2025-07-15')
@@ -164,18 +195,29 @@ def create_reservation(
         tool_context: Strands ToolContext (automatically injected)
         num_children: Number of children (default: 0)
         special_requests: Any special requests from the guest (optional)
+        access_token: JWT access token (injected by @requires_access_token)
 
     Returns:
         Dictionary with reservation details or error message
     """
-    # T044: Get auth token from agent state (set by agent_app.py from request payload)
-    auth_token = _get_auth_token(tool_context)
+    # TRACE: Log at function start - if this doesn't appear, decorator is blocking
+    logger.info(
+        "[CREATE_RESERVATION] Tool function ENTERED - decorator completed. "
+        "check_in=%s, check_out=%s, num_adults=%d, token_length=%d",
+        check_in, check_out, num_adults, len(access_token) if access_token else 0
+    )
 
-    # Extract user identity from JWT token (both sub and email)
-    cognito_sub, authenticated_email = extract_cognito_claims(auth_token)
+    # T012: Extract user identity from decorator-provided access_token
+    # The token is already validated by the decorator - just extract claims
+    cognito_sub, authenticated_email = extract_cognito_claims(access_token)
     if not cognito_sub:
-        logger.info("create_reservation called without valid auth_token, returning auth_required")
-        return _auth_required_response("complete your booking")
+        # This shouldn't happen if decorator worked, but handle gracefully
+        logger.error("Decorator provided invalid access_token - no cognito_sub")
+        error = ToolError.from_code(
+            ErrorCode.VERIFICATION_REQUIRED,
+            details={"reason": "Authentication token is invalid. Please try logging in again."},
+        )
+        return error.model_dump()
 
     # Look up or create guest record for this user
     db = _get_db()
@@ -365,14 +407,23 @@ def _serialize_dynamodb(value: Any) -> dict[str, Any]:
 
 
 @tool(context=True)
-def modify_reservation(
+@requires_access_token(
+    provider_name=OAUTH2_PROVIDER_NAME,
+    scopes=["openid", "email"],
+    auth_flow="USER_FEDERATION",
+    on_auth_url=_handle_auth_url,
+    callback_url=OAUTH2_CALLBACK_URL,
+)
+async def modify_reservation(
     reservation_id: str,
-    tool_context: ToolContext,
+    tool_context: ToolContext,  # noqa: ARG001 - Required by @tool(context=True)
     new_check_in: str | None = None,
     new_check_out: str | None = None,
     new_num_adults: int | None = None,
     new_num_children: int | None = None,
     new_special_requests: str | None = None,
+    *,
+    access_token: str,
 ) -> dict[str, Any]:
     """Modify an existing reservation.
 
@@ -381,7 +432,10 @@ def modify_reservation(
 
     IMPORTANT: Only modify reservations that are pending or confirmed.
     Cannot modify cancelled or completed reservations.
-    The user must be authenticated and own the reservation.
+
+    Authentication is handled automatically via @requires_access_token decorator.
+    If the user is not logged in, an authorization URL will be streamed to the
+    client for them to complete OAuth2 login.
 
     Args:
         reservation_id: The reservation ID (e.g., 'RES-2025-ABCD1234')
@@ -391,18 +445,20 @@ def modify_reservation(
         new_num_adults: New number of adults (optional)
         new_num_children: New number of children (optional)
         new_special_requests: Updated special requests (optional)
+        access_token: JWT access token (injected by @requires_access_token)
 
     Returns:
         Dictionary with updated reservation details or error message
     """
-    # T044: Get auth token from agent state (set by agent_app.py from request payload)
-    auth_token = _get_auth_token(tool_context)
-
-    # Verify user identity from JWT token
-    cognito_sub = extract_cognito_sub(auth_token)
+    # T013: Extract user identity from decorator-provided access_token
+    cognito_sub = extract_cognito_sub(access_token)
     if not cognito_sub:
-        logger.info("modify_reservation called without valid auth_token, returning auth_required")
-        return _auth_required_response("modify your reservation")
+        logger.error("Decorator provided invalid access_token - no cognito_sub")
+        error = ToolError.from_code(
+            ErrorCode.VERIFICATION_REQUIRED,
+            details={"reason": "Authentication token is invalid. Please try logging in again."},
+        )
+        return error.model_dump()
 
     logger.info("modify_reservation called", extra={"reservation_id": reservation_id})
     db = _get_db()
@@ -516,8 +572,26 @@ def modify_reservation(
     if new_special_requests is not None:
         updates["special_requests"] = new_special_requests
 
-    # Update reservation
-    db.update_item("reservations", {"reservation_id": reservation_id}, updates)
+    # Update reservation - build proper DynamoDB update expression
+    set_parts = []
+    attr_values: dict[str, Any] = {}
+    attr_names: dict[str, str] = {}
+
+    for key, value in updates.items():
+        # Use expression attribute names for reserved words
+        safe_name = f"#{key}"
+        attr_names[safe_name] = key
+        set_parts.append(f"{safe_name} = :{key}")
+        attr_values[f":{key}"] = value
+
+    update_expression = "SET " + ", ".join(set_parts)
+    db.update_item(
+        "reservations",
+        {"reservation_id": reservation_id},
+        update_expression,
+        attr_values,
+        attr_names,
+    )
 
     # If dates changed, update availability
     if dates_changing:
@@ -527,11 +601,13 @@ def modify_reservation(
             db.update_item(
                 "availability",
                 {"date": d.isoformat()},
+                "SET #status = :status, reservation_id = :rid, updated_at = :upd",
                 {
-                    "status": AvailabilityStatus.AVAILABLE.value,
-                    "reservation_id": None,
-                    "updated_at": now.isoformat(),
+                    ":status": AvailabilityStatus.AVAILABLE.value,
+                    ":rid": None,
+                    ":upd": now.isoformat(),
                 },
+                {"#status": "status"},  # 'status' is a reserved word
             )
 
         # Book new dates
@@ -573,10 +649,19 @@ def modify_reservation(
 
 
 @tool(context=True)
-def cancel_reservation(
+@requires_access_token(
+    provider_name=OAUTH2_PROVIDER_NAME,
+    scopes=["openid", "email"],
+    auth_flow="USER_FEDERATION",
+    on_auth_url=_handle_auth_url,
+    callback_url=OAUTH2_CALLBACK_URL,
+)
+async def cancel_reservation(
     reservation_id: str,
-    tool_context: ToolContext,
+    tool_context: ToolContext,  # noqa: ARG001 - Required by @tool(context=True)
     reason: str | None = None,
+    *,
+    access_token: str,
 ) -> dict[str, Any]:
     """Cancel an existing reservation.
 
@@ -587,24 +672,29 @@ def cancel_reservation(
     - Less than 14 days: No refund
 
     IMPORTANT: Cannot cancel already cancelled or completed reservations.
-    The user must be authenticated and own the reservation.
+
+    Authentication is handled automatically via @requires_access_token decorator.
+    If the user is not logged in, an authorization URL will be streamed to the
+    client for them to complete OAuth2 login.
 
     Args:
         reservation_id: The reservation ID (e.g., 'RES-2025-ABCD1234')
         tool_context: Strands ToolContext (automatically injected)
         reason: Optional reason for cancellation
+        access_token: JWT access token (injected by @requires_access_token)
 
     Returns:
         Dictionary with cancellation details and refund information
     """
-    # T044: Get auth token from agent state (set by agent_app.py from request payload)
-    auth_token = _get_auth_token(tool_context)
-
-    # Verify user identity from JWT token
-    cognito_sub = extract_cognito_sub(auth_token)
+    # T014: Extract user identity from decorator-provided access_token
+    cognito_sub = extract_cognito_sub(access_token)
     if not cognito_sub:
-        logger.info("cancel_reservation called without valid auth_token, returning auth_required")
-        return _auth_required_response("cancel your reservation")
+        logger.error("Decorator provided invalid access_token - no cognito_sub")
+        error = ToolError.from_code(
+            ErrorCode.VERIFICATION_REQUIRED,
+            details={"reason": "Authentication token is invalid. Please try logging in again."},
+        )
+        return error.model_dump()
 
     logger.info("cancel_reservation called", extra={"reservation_id": reservation_id})
     db = _get_db()
@@ -739,31 +829,45 @@ def cancel_reservation(
 
 
 @tool(context=True)
-def get_my_reservations(tool_context: ToolContext) -> dict[str, Any]:
+@requires_access_token(
+    provider_name=OAUTH2_PROVIDER_NAME,
+    scopes=["openid", "email"],
+    auth_flow="USER_FEDERATION",
+    on_auth_url=_handle_auth_url,
+    callback_url=OAUTH2_CALLBACK_URL,
+)
+async def get_my_reservations(
+    tool_context: ToolContext,  # noqa: ARG001 - Required by @tool(context=True)
+    *,
+    access_token: str,
+) -> dict[str, Any]:
     """Get all reservations for the authenticated user.
 
     Use this tool when an authenticated guest asks about their bookings,
     such as "What are my reservations?" or "Show me my bookings".
 
-    This tool requires the user to be authenticated. If not logged in,
-    returns auth_required response for the frontend to handle.
+    Authentication is handled automatically via @requires_access_token decorator.
+    If the user is not logged in, an authorization URL will be streamed to the
+    client for them to complete OAuth2 login.
 
     Args:
         tool_context: Strands ToolContext (automatically injected)
+        access_token: JWT access token (injected by @requires_access_token)
 
     Returns:
-        Dictionary with list of user's reservations or auth_required if not authenticated
+        Dictionary with list of user's reservations
     """
     logger.info("get_my_reservations called")
 
-    # T044: Get auth token from agent state (set by agent_app.py from request payload)
-    auth_token = _get_auth_token(tool_context)
-
-    # Extract cognito_sub from JWT token
-    cognito_sub = extract_cognito_sub(auth_token)
+    # T015: Extract cognito_sub from decorator-provided access_token
+    cognito_sub = extract_cognito_sub(access_token)
     if not cognito_sub:
-        logger.info("get_my_reservations called without valid auth_token, returning auth_required")
-        return _auth_required_response("view your reservations")
+        logger.error("Decorator provided invalid access_token - no cognito_sub")
+        error = ToolError.from_code(
+            ErrorCode.VERIFICATION_REQUIRED,
+            details={"reason": "Authentication token is invalid. Please try logging in again."},
+        )
+        return error.model_dump()
 
     db = _get_db()
 
@@ -816,52 +920,6 @@ def get_my_reservations(tool_context: ToolContext) -> dict[str, Any]:
         "reservations": formatted,
         "count": len(formatted),
         "message": f"Found {len(formatted)} reservation(s).",
-    }
-
-
-@tool(context=True)
-def get_authenticated_user(tool_context: ToolContext) -> dict[str, Any]:
-    """Check if the user is authenticated and return their info.
-
-    Use this tool FIRST when a guest wants to make a booking, modify a reservation,
-    or perform any action that requires authentication. This allows you to:
-    1. Check if they need to log in before proceeding
-    2. Get their verified email address (don't ask them for it)
-    3. Greet them by their verified identity
-
-    IMPORTANT: Call this tool BEFORE asking for booking details. If not authenticated,
-    guide them to log in first. Do not collect email or other details until they're logged in.
-
-    Args:
-        tool_context: Strands ToolContext (automatically injected)
-
-    Returns:
-        If authenticated:
-        - status: "authenticated"
-        - email: User's verified email from Cognito
-        - has_profile: Whether they have a guest profile
-
-        If not authenticated:
-        - Returns auth_required response for frontend to redirect to login
-    """
-    logger.info("get_authenticated_user called")
-
-    auth_token = _get_auth_token(tool_context)
-    cognito_sub, email = extract_cognito_claims(auth_token)
-
-    if not cognito_sub:
-        logger.info("get_authenticated_user: no valid auth_token, returning auth_required")
-        return _auth_required_response("proceed with your booking")
-
-    db = _get_db()
-    guest = db.get_guest_by_cognito_sub(cognito_sub)
-
-    return {
-        "status": "authenticated",
-        "email": email,
-        "has_profile": guest is not None,
-        "guest_id": guest["guest_id"] if guest else None,
-        "message": f"User is authenticated as {email}",
     }
 
 

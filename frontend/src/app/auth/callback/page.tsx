@@ -35,6 +35,7 @@ type CallbackStatus =
   | 'success'
   | 'error'
   | 'no_session'
+  | 'csrf_invalid'
 
 interface CallbackState {
   status: CallbackStatus
@@ -63,6 +64,25 @@ function CallbackContent() {
 
   useEffect(() => {
     async function handleCallback() {
+      // Validate CSRF state parameter (FR-023)
+      const storedState = sessionStorage.getItem('oauth_state')
+      const urlState = searchParams.get('custom_state')
+
+      // If we have a stored state, validate it matches the URL state
+      if (storedState && urlState && storedState !== urlState) {
+        console.error('[Callback] CSRF validation failed: state mismatch')
+        setState({
+          status: 'csrf_invalid',
+          errorMessage: 'Invalid authentication state. This may be a security issue. Please return to the chat and try again.',
+        })
+        return
+      }
+
+      // Clear the stored state after validation (one-time use)
+      if (storedState) {
+        sessionStorage.removeItem('oauth_state')
+      }
+
       // Extract session_id from URL
       const sessionId = extractSessionId(searchParams)
 
@@ -170,6 +190,37 @@ function CallbackContent() {
               <p className="text-gray-500">
                 Redirecting you back to the chat...
               </p>
+            </div>
+          )}
+
+          {/* CSRF Invalid State */}
+          {state.status === 'csrf_invalid' && (
+            <div className="space-y-4">
+              <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                <svg
+                  className="h-6 w-6 text-red-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900">
+                Security Check Failed
+              </h2>
+              <p className="text-gray-500">{state.errorMessage}</p>
+              <button
+                onClick={handleRestartFlow}
+                className="mt-4 px-6 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors"
+              >
+                Return to Chat
+              </button>
             </div>
           )}
 

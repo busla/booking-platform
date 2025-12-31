@@ -71,12 +71,19 @@ export default function ChatPage() {
   /**
    * Handle auth-required events from @requires_access_token decorated tools.
    * Redirects user to login page with the AgentCore callback URL.
+   *
+   * Security: Generates CSRF state token stored in sessionStorage and passed
+   * through the OAuth2 flow for validation in the callback page (FR-023).
    */
   const handleAuthRequired = useCallback(
     (_event: AuthRequiredEvent) => {
+      // Generate CSRF state token for OAuth2 flow protection
+      const csrfState = crypto.randomUUID()
+      sessionStorage.setItem('oauth_state', csrfState)
+
       // Redirect to login page with current path as return destination
       const returnUrl = window.location.pathname + window.location.search
-      const loginUrl = `/auth/login?redirect=${encodeURIComponent(returnUrl)}`
+      const loginUrl = `/auth/login?redirect=${encodeURIComponent(returnUrl)}&state=${encodeURIComponent(csrfState)}`
       router.push(loginUrl)
     },
     [router]

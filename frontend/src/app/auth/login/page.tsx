@@ -37,12 +37,18 @@ function LoginContent() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
+  const [csrfState, setCsrfState] = useState<string | null>(null)
 
-  // Get redirect URL from query params
+  // Get redirect URL and CSRF state from query params
   useEffect(() => {
     const url = searchParams.get('redirect') || searchParams.get('auth_url')
     if (url) {
       setRedirectUrl(decodeURIComponent(url))
+    }
+    // Preserve CSRF state parameter for callback validation (FR-023)
+    const state = searchParams.get('state')
+    if (state) {
+      setCsrfState(decodeURIComponent(state))
     }
   }, [searchParams])
 
@@ -64,8 +70,14 @@ function LoginContent() {
 
   const handleSuccess = () => {
     setStep('success')
-    // Amplify stores tokens internally - just redirect
-    const destination = redirectUrl || '/'
+    // Amplify stores tokens internally - build redirect URL with CSRF state
+    let destination = redirectUrl || '/'
+    // Append CSRF state to callback URL for validation (FR-023)
+    if (csrfState && destination.includes('/auth/callback')) {
+      const url = new URL(destination, window.location.origin)
+      url.searchParams.set('custom_state', csrfState)
+      destination = url.pathname + url.search
+    }
     setTimeout(() => {
       router.push(destination)
     }, 500)

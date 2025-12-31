@@ -234,14 +234,34 @@ task backend:test
 
 # Frontend
 task frontend:test
+
+# Run specific OAuth2-related unit tests
+cd backend && uv run pytest tests/unit/tools/test_reservation_auth.py -v
+cd frontend && yarn vitest run --reporter=verbose tests/unit/lib/agentcore-auth.test.ts
+cd frontend && yarn vitest run --reporter=verbose tests/unit/app/auth/login/page.test.tsx
 ```
 
 ### Integration Tests
 
 ```bash
-# Backend integration (requires AWS credentials)
-cd backend && pytest tests/integration/ -v
+# Backend integration (requires mocked AWS via moto)
+cd backend && uv run pytest tests/integration/ -v
+
+# Run specific OAuth2 flow tests
+cd backend && uv run pytest tests/integration/test_returning_user.py -v  # Returning user (US5)
+cd backend && uv run pytest tests/integration/test_anonymous_inquiry.py -v  # Anonymous inquiry (US1)
 ```
+
+### OAuth2-Specific Test Coverage
+
+| Test File | User Story | Coverage |
+|-----------|------------|----------|
+| `backend/tests/unit/tools/test_reservation_auth.py` | US2 | `@requires_access_token` decorator behavior |
+| `backend/tests/integration/test_anonymous_inquiry.py` | US1 | Anonymous users can inquire without auth |
+| `backend/tests/integration/test_returning_user.py` | US5 | Token reuse, JWT claims, data isolation |
+| `frontend/tests/unit/app/auth/login/page.test.tsx` | US3 | EMAIL_OTP form, CSRF state handling |
+| `frontend/tests/unit/lib/agentcore-auth.test.ts` | US4 | `CompleteResourceTokenAuth` wrapper, error mapping |
+| `frontend/tests/e2e/auth-flow.spec.ts` | All | End-to-end OAuth2 flow |
 
 ### E2E Tests
 
@@ -250,7 +270,7 @@ cd backend && pytest tests/integration/ -v
 cd frontend && yarn test:e2e
 
 # Run specific OAuth2 flow test
-cd frontend && yarn playwright test oauth-flow.spec.ts
+cd frontend && yarn playwright test auth-flow.spec.ts
 ```
 
 ---
