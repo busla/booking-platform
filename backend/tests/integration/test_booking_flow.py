@@ -12,6 +12,10 @@ and that state transitions happen as expected.
 NOTE: Pricing tests are simplified since the pricing table requires
 a GSI setup that's complex to mock. The reservation tools have
 hardcoded pricing for test simplicity.
+
+Note: Tests must seed a guest with cognito_sub="test-cognito-sub-123" to match
+the mock JWT from conftest.py. With @requires_access_token decorator,
+guest identity is derived from the JWT token, not passed as a parameter.
 """
 
 import os
@@ -140,11 +144,17 @@ def dynamodb_tables(aws_credentials: None) -> Generator[Any, None, None]:
                 "AttributeDefinitions": [
                     {"AttributeName": "guest_id", "AttributeType": "S"},
                     {"AttributeName": "email", "AttributeType": "S"},
+                    {"AttributeName": "cognito_sub", "AttributeType": "S"},
                 ],
                 "GlobalSecondaryIndexes": [
                     {
                         "IndexName": "email-index",
                         "KeySchema": [{"AttributeName": "email", "KeyType": "HASH"}],
+                        "Projection": {"ProjectionType": "ALL"},
+                    },
+                    {
+                        "IndexName": "cognito-sub-index",
+                        "KeySchema": [{"AttributeName": "cognito_sub", "KeyType": "HASH"}],
                         "Projection": {"ProjectionType": "ALL"},
                     },
                 ],
@@ -228,6 +238,29 @@ def seed_availability(dynamodb_tables: Any) -> None:
 
 
 @pytest.fixture
+def seed_guest(dynamodb_tables: Any) -> dict[str, Any]:
+    """Seed a guest with cognito_sub matching the mock JWT from conftest.py.
+
+    This is required for @requires_access_token decorated tools which
+    derive guest identity from the JWT token's cognito_sub claim.
+    """
+    resource = boto3.resource("dynamodb", region_name="eu-west-1")
+    table = resource.Table("test-booking-guests")
+
+    guest = {
+        "guest_id": "integration-test-guest-123",
+        "email": "test@example.com",
+        "cognito_sub": "test-cognito-sub-123",  # Must match conftest.py _create_mock_jwt()
+        "full_name": "Integration Test User",
+        "email_verified": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    table.put_item(Item=guest)
+    return guest
+
+
+@pytest.fixture
 def mock_ses() -> Generator[MagicMock, None, None]:
     """Mock SES for email sending."""
     with patch("boto3.client") as mock_client:
@@ -249,10 +282,12 @@ def mock_ses() -> Generator[MagicMock, None, None]:
 class TestCompleteBookingFlow:
     """Tests the complete booking flow from availability check to payment."""
 
-    def test_happy_path_booking_flow(
+    async def test_happy_path_booking_flow(
         self,
         dynamodb_tables: Any,
         seed_availability: None,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test the complete happy path: availability → reservation → payment."""
         # Import tools here to ensure moto is active
@@ -269,15 +304,15 @@ class TestCompleteBookingFlow:
         assert avail_result["status"] == "success"
         assert avail_result["is_available"] is True
 
-        # Step 2: Create reservation (simulating verified guest)
-        # Note: Pricing is calculated internally by create_reservation
-        res_result = create_reservation(
-            guest_id="verified-guest-123",
+        # Step 2: Create reservation (guest identity from JWT token)
+        # Note: guest_id is derived from cognito_sub in JWT, not passed as parameter
+        res_result = await create_reservation(
             check_in=_date_str(0),
             check_out=_date_str(4),
             num_adults=2,
             num_children=1,
             special_requests="Early check-in please",
+            tool_context=mock_tool_context,
         )
 
         assert res_result["status"] == "success"
@@ -298,10 +333,12 @@ class TestCompleteBookingFlow:
         assert payment_result["status"] == "success"
         assert payment_result["payment_status"] == "paid"
 
-    def test_booking_unavailable_dates_fails(
+    async def test_booking_unavailable_dates_fails(
         self,
         dynamodb_tables: Any,
         seed_availability: None,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test that booking unavailable dates fails gracefully."""
         from src.tools.availability import check_availability
@@ -318,21 +355,23 @@ class TestCompleteBookingFlow:
         assert len(avail_result["unavailable_dates"]) > 0
 
         # Step 2: Try to create reservation anyway (agent wouldn't, but test protection)
-        res_result = create_reservation(
-            guest_id="verified-guest-123",
+        res_result = await create_reservation(
             check_in=_date_str(9),
             check_out=_date_str(14),
             num_adults=2,
+            tool_context=mock_tool_context,
         )
 
         assert is_error_response(res_result)
         error_code = get_error_code(res_result)
         assert error_code and "DATES_UNAVAILABLE" in error_code
 
-    def test_dates_become_unavailable_after_reservation(
+    async def test_dates_become_unavailable_after_reservation(
         self,
         dynamodb_tables: Any,
         seed_availability: None,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test that dates are marked unavailable after successful reservation."""
         from src.tools.availability import check_availability
@@ -347,11 +386,11 @@ class TestCompleteBookingFlow:
         assert avail_before["is_available"] is True
 
         # Step 2: Create reservation
-        res_result = create_reservation(
-            guest_id="verified-guest-123",
+        res_result = await create_reservation(
             check_in=_date_str(19),
             check_out=_date_str(24),
             num_adults=2,
+            tool_context=mock_tool_context,
         )
 
         assert res_result["status"] == "success"
@@ -364,30 +403,33 @@ class TestCompleteBookingFlow:
 
         assert avail_after["is_available"] is False
 
-    def test_partial_overlap_fails(
+    async def test_partial_overlap_fails(
         self,
         dynamodb_tables: Any,
         seed_availability: None,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test that partial date overlap is correctly detected."""
         from src.tools.reservations import create_reservation
 
         # First booking for days 14-19 (available range)
-        res1 = create_reservation(
-            guest_id="guest-1",
+        res1 = await create_reservation(
             check_in=_date_str(14),
             check_out=_date_str(19),
             num_adults=2,
+            tool_context=mock_tool_context,
         )
 
         assert res1["status"] == "success"
 
         # Second booking with overlapping dates (days 17-24)
-        res2 = create_reservation(
-            guest_id="guest-2",
+        # Same guest can't double-book dates either
+        res2 = await create_reservation(
             check_in=_date_str(17),
             check_out=_date_str(24),
             num_adults=2,
+            tool_context=mock_tool_context,
         )
 
         assert is_error_response(res2)
@@ -464,70 +506,78 @@ class TestGuestVerificationFlow:
 class TestReservationValidation:
     """Tests reservation validation rules."""
 
-    def test_checkout_before_checkin_fails(
+    async def test_checkout_before_checkin_fails(
         self,
         dynamodb_tables: Any,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test that checkout date before checkin is rejected."""
         from src.tools.reservations import create_reservation
 
-        result = create_reservation(
-            guest_id="guest-123",
+        result = await create_reservation(
             check_in=_date_str(14),
             check_out=_date_str(9),  # Before check-in
             num_adults=2,
+            tool_context=mock_tool_context,
         )
 
         assert is_error_response(result)
         assert "check-out" in result.get("message", "").lower() or "date" in result.get("message", "").lower()
 
-    def test_invalid_date_format_fails(
+    async def test_invalid_date_format_fails(
         self,
         dynamodb_tables: Any,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test that invalid date format is rejected."""
         from src.tools.reservations import create_reservation
 
-        result = create_reservation(
-            guest_id="guest-123",
+        result = await create_reservation(
             check_in="15/07/2025",  # Wrong format
             check_out="20/07/2025",
             num_adults=2,
+            tool_context=mock_tool_context,
         )
 
         assert is_error_response(result)
         assert "date" in result.get("message", "").lower() or "format" in result.get("message", "").lower()
 
-    def test_zero_adults_fails(
+    async def test_zero_adults_fails(
         self,
         dynamodb_tables: Any,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test that zero adult guests is rejected."""
         from src.tools.reservations import create_reservation
 
-        result = create_reservation(
-            guest_id="guest-123",
+        result = await create_reservation(
             check_in=_date_str(0),
             check_out=_date_str(4),
             num_adults=0,
+            tool_context=mock_tool_context,
         )
 
         assert is_error_response(result)
         assert "adult" in result.get("message", "").lower()
 
-    def test_exceeds_max_guests_fails(
+    async def test_exceeds_max_guests_fails(
         self,
         dynamodb_tables: Any,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test that exceeding max guest limit is rejected."""
         from src.tools.reservations import create_reservation
 
-        result = create_reservation(
-            guest_id="guest-123",
+        result = await create_reservation(
             check_in=_date_str(0),
             check_out=_date_str(4),
             num_adults=5,
             num_children=3,  # Total 8, exceeds 6 max
+            tool_context=mock_tool_context,
         )
 
         assert is_error_response(result)
@@ -537,21 +587,23 @@ class TestReservationValidation:
 class TestPaymentProcessing:
     """Tests payment processing integration."""
 
-    def test_payment_updates_reservation_status(
+    async def test_payment_updates_reservation_status(
         self,
         dynamodb_tables: Any,
         seed_availability: None,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test that payment updates reservation status to confirmed."""
         from src.tools.reservations import create_reservation, get_reservation
         from src.tools.payments import process_payment
 
         # Create reservation (days 24-29, available range)
-        res_result = create_reservation(
-            guest_id="guest-123",
+        res_result = await create_reservation(
             check_in=_date_str(24),
             check_out=_date_str(29),
             num_adults=2,
+            tool_context=mock_tool_context,
         )
 
         assert res_result["status"] == "success"
@@ -598,39 +650,38 @@ class TestConcurrentBookingPrevention:
     These tests verify that DynamoDB transactions properly prevent
     double-booking when multiple requests try to book the same dates
     simultaneously.
+
+    Note: With @requires_access_token, all requests appear as the same
+    authenticated user. These tests verify date conflict prevention works
+    regardless of who is making the reservation.
     """
 
-    def test_concurrent_booking_same_dates_one_succeeds(
+    async def test_concurrent_booking_same_dates_one_succeeds(
         self,
         dynamodb_tables: Any,
         seed_availability: None,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test that concurrent bookings for same dates results in only one success.
 
-        This simulates the race condition where two guests try to book
+        This simulates the race condition where two requests try to book
         the same dates at exactly the same time. The transactional write
         with condition checks should ensure only one succeeds.
         """
-        import concurrent.futures
+        import asyncio
         from src.tools.reservations import create_reservation
 
-        results: list[dict[str, Any]] = []
-
-        def make_reservation(guest_id: str) -> dict[str, Any]:
-            return create_reservation(
-                guest_id=guest_id,
+        async def make_reservation() -> dict[str, Any]:
+            return await create_reservation(
                 check_in=_date_str(26),
                 check_out=_date_str(29),
                 num_adults=2,
+                tool_context=mock_tool_context,
             )
 
-        # Execute both reservations concurrently
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            future1 = executor.submit(make_reservation, "guest-concurrent-1")
-            future2 = executor.submit(make_reservation, "guest-concurrent-2")
-
-            results.append(future1.result())
-            results.append(future2.result())
+        # Execute both reservations concurrently using asyncio.gather
+        results = await asyncio.gather(make_reservation(), make_reservation())
 
         # Count successes and failures
         successes = [r for r in results if is_success_response(r)]
@@ -647,43 +698,39 @@ class TestConcurrentBookingPrevention:
             f"Expected BOOKING_CONFLICT, DATES_UNAVAILABLE or ERR_001, got: {failure}"
         )
 
-    def test_concurrent_booking_partial_overlap_blocked(
+    async def test_concurrent_booking_partial_overlap_blocked(
         self,
         dynamodb_tables: Any,
         seed_availability: None,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test that concurrent bookings with partial date overlap are handled.
 
         Even if bookings only partially overlap, one should fail
         to prevent any date conflicts.
         """
-        import concurrent.futures
+        import asyncio
         from src.tools.reservations import create_reservation
 
-        results: list[dict[str, Any]] = []
-
-        def reservation_early() -> dict[str, Any]:
-            return create_reservation(
-                guest_id="guest-early",
+        async def reservation_early() -> dict[str, Any]:
+            return await create_reservation(
                 check_in=_date_str(20),
                 check_out=_date_str(23),  # days 20-22
                 num_adults=2,
+                tool_context=mock_tool_context,
             )
 
-        def reservation_late() -> dict[str, Any]:
-            return create_reservation(
-                guest_id="guest-late",
+        async def reservation_late() -> dict[str, Any]:
+            return await create_reservation(
                 check_in=_date_str(22),
                 check_out=_date_str(25),  # days 22-24, overlaps on 22
                 num_adults=2,
+                tool_context=mock_tool_context,
             )
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            future1 = executor.submit(reservation_early)
-            future2 = executor.submit(reservation_late)
-
-            results.append(future1.result())
-            results.append(future2.result())
+        # Execute both reservations concurrently using asyncio.gather
+        results = await asyncio.gather(reservation_early(), reservation_late())
 
         successes = [r for r in results if is_success_response(r)]
         failures = [r for r in results if is_error_response(r)]
@@ -700,10 +747,12 @@ class TestConcurrentBookingPrevention:
                 f"Unexpected error code: {failure}"
             )
 
-    def test_sequential_booking_after_first_succeeds(
+    async def test_sequential_booking_after_first_succeeds(
         self,
         dynamodb_tables: Any,
         seed_availability: None,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test that sequential booking properly fails for already-booked dates.
 
@@ -713,22 +762,22 @@ class TestConcurrentBookingPrevention:
         from src.tools.reservations import create_reservation
 
         # First booking (days 27-30)
-        res1 = create_reservation(
-            guest_id="guest-first",
+        res1 = await create_reservation(
             check_in=_date_str(27),
             check_out=_date_str(30),
             num_adults=2,
+            tool_context=mock_tool_context,
         )
 
         assert res1["status"] == "success"
         assert "reservation_id" in res1
 
         # Second booking for overlapping dates - should fail on availability check
-        res2 = create_reservation(
-            guest_id="guest-second",
+        res2 = await create_reservation(
             check_in=_date_str(28),
             check_out=_date_str(30),  # Overlaps with 28, 29
             num_adults=2,
+            tool_context=mock_tool_context,
         )
 
         assert is_error_response(res2)
@@ -738,37 +787,35 @@ class TestConcurrentBookingPrevention:
         has_unavailable = "unavailable_dates" in res2 or "unavailable_dates" in res2.get("details", {})
         assert has_unavailable or "details" in res2
 
-    def test_non_overlapping_concurrent_bookings_both_succeed(
+    async def test_non_overlapping_concurrent_bookings_both_succeed(
         self,
         dynamodb_tables: Any,
         seed_availability: None,
+        seed_guest: dict[str, Any],
+        mock_tool_context: MagicMock,
     ) -> None:
         """Test that concurrent bookings for different dates both succeed."""
-        import concurrent.futures
+        import asyncio
         from src.tools.reservations import create_reservation
 
-        def reservation_early() -> dict[str, Any]:
-            return create_reservation(
-                guest_id="guest-a",
+        async def reservation_early() -> dict[str, Any]:
+            return await create_reservation(
                 check_in=_date_str(0),
                 check_out=_date_str(2),
                 num_adults=2,
+                tool_context=mock_tool_context,
             )
 
-        def reservation_late() -> dict[str, Any]:
-            return create_reservation(
-                guest_id="guest-b",
+        async def reservation_late() -> dict[str, Any]:
+            return await create_reservation(
                 check_in=_date_str(4),
                 check_out=_date_str(6),  # No overlap
                 num_adults=2,
+                tool_context=mock_tool_context,
             )
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            future1 = executor.submit(reservation_early)
-            future2 = executor.submit(reservation_late)
-
-            res1 = future1.result()
-            res2 = future2.result()
+        # Execute both reservations concurrently using asyncio.gather
+        res1, res2 = await asyncio.gather(reservation_early(), reservation_late())
 
         # Both should succeed since dates don't overlap
         assert res1["status"] == "success", f"First booking failed: {res1}"

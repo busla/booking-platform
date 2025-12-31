@@ -9,27 +9,27 @@ Implements Vercel AI SDK v6 UI Message Stream Protocol for frontend compatibilit
 Session Management:
 - Uses Strands S3SessionManager for conversation persistence
 - Each session_id from the frontend maps to a unique conversation history
-- Conversation history is restored when agent is created with session manager
-- Uses synchronous agent() call with callback for proper session persistence
+- Uses stream_async for native async streaming (follows AgentCore samples pattern)
+
+Authentication (Spec 005 - AgentCore Identity OAuth2):
+- Reservation tools use @requires_access_token decorator
+- When user consent is needed, decorator puts auth URL in shared queue
+- Entrypoint yields auth URL events to frontend for OAuth2 redirect
+- After login, frontend callback completes token binding
+- Decorator polling succeeds and tool executes with injected access_token
 """
 
 import asyncio
+import contextlib
 import logging
 import os
-import queue
 import sys
 import uuid
 from collections.abc import AsyncGenerator
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from bedrock_agentcore.runtime import BedrockAgentCoreApp
-from strands.session.s3_session_manager import S3SessionManager
-
-from src.agent import create_booking_agent
-
-# Configure logging - MUST happen before any logger.info() calls
-# This routes all Python logging to stdout/stderr for CloudWatch capture
+# Configure logging FIRST - before any application imports
+# This ensures module-level logging in src.tools.reservations is captured
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -40,6 +40,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logger.info("[AGENT_APP] Logging configured successfully")
 
+# Application imports - after logging is configured
+# These imports trigger module-level logging in reservations.py
+from bedrock_agentcore.runtime import BedrockAgentCoreApp  # noqa: E402
+from strands.session.s3_session_manager import S3SessionManager  # noqa: E402
+
+from src.agent import create_booking_agent  # noqa: E402
+from src.tools import set_auth_url_queue  # noqa: E402
+
 # Initialize AgentCore app
 app = BedrockAgentCoreApp()
 
@@ -47,26 +55,13 @@ app = BedrockAgentCoreApp()
 SESSION_BUCKET = os.environ.get("SESSION_BUCKET", "")
 SESSION_PREFIX = os.environ.get("SESSION_PREFIX", "agent-sessions/")
 
-# Thread pool for running sync agent calls
-_executor = ThreadPoolExecutor(max_workers=10)
 
-
-def _sse_event(data: dict[str, Any]) -> dict[str, Any]:
-    """Wrap data in SSE-compatible format for AgentCore streaming.
-
-    AgentCore's BedrockAgentCoreApp automatically converts yielded dicts
-    to SSE format: `data: {json}\n\n`
-    """
-    return data
-
-
-def _create_session_agent(session_id: str, callback_handler: Any = None) -> Any:
+def _create_session_agent(session_id: str) -> Any:
     """Create an agent with session management for conversation persistence.
 
     Args:
         session_id: Unique identifier for the conversation session.
                    Conversations with the same session_id share history.
-        callback_handler: Optional callback for streaming events.
 
     Returns:
         Agent instance configured with S3 session manager (if SESSION_BUCKET is set)
@@ -80,41 +75,18 @@ def _create_session_agent(session_id: str, callback_handler: Any = None) -> Any:
             bucket=SESSION_BUCKET,
             prefix=SESSION_PREFIX,
         )
-        return create_booking_agent(session_manager=session_manager, callback_handler=callback_handler)
+        return create_booking_agent(session_manager=session_manager)
     else:
         # Development/fallback: No session persistence
-        # Each request creates a fresh agent without history
         logger.warning("SESSION_BUCKET not set - agent will not persist conversation history")
-        return create_booking_agent(callback_handler=callback_handler)
-
-
-def _run_agent_sync(agent: Any, prompt: str, event_queue: queue.Queue) -> None:
-    """Run agent synchronously in a thread, pushing events to queue.
-
-    This ensures the synchronous agent() call is used, which properly
-    triggers session persistence hooks (unlike stream_async).
-    """
-    try:
-        # The synchronous agent() call triggers session persistence automatically
-        # The callback_handler receives streaming events
-        agent(prompt)
-        # Signal completion
-        event_queue.put({"_done": True})
-    except Exception as e:
-        logger.error(f"Agent execution error: {e}")
-        event_queue.put({"_error": str(e)})
-        event_queue.put({"_done": True})
+        return create_booking_agent()
 
 
 @app.entrypoint
 async def invoke(payload: dict[str, Any]) -> AsyncGenerator[dict[str, Any]]:
     """Handle agent invocation requests with AI SDK v6 streaming.
 
-    Creates a session-bound agent that maintains conversation history across
-    multiple invocations with the same session_id.
-
-    Uses synchronous agent() call with callback handler to ensure proper
-    session persistence (stream_async doesn't trigger session save hooks).
+    Uses stream_async for native async streaming (follows AgentCore samples pattern).
 
     Args:
         payload: Request payload containing:
@@ -127,6 +99,7 @@ async def invoke(payload: dict[str, Any]) -> AsyncGenerator[dict[str, Any]]:
         - {"type": "text-start", "id": "..."}
         - {"type": "text-delta", "id": "...", "delta": "..."}
         - {"type": "text-end", "id": "..."}
+        - {"type": "auth_required", "authorization_url": "..."} (OAuth2 login needed)
         - {"type": "finish", "finishReason": "stop"}
     """
     prompt = payload.get("prompt", "")
@@ -138,86 +111,115 @@ async def invoke(payload: dict[str, Any]) -> AsyncGenerator[dict[str, Any]]:
 
     if not prompt:
         # Emit error as AI SDK v6 stream
-        yield _sse_event({"type": "start", "messageId": message_id})
-        yield _sse_event({"type": "text-start", "id": text_part_id})
-        yield _sse_event({
+        yield {"type": "start", "messageId": message_id}
+        yield {"type": "text-start", "id": text_part_id}
+        yield {
             "type": "text-delta",
             "id": text_part_id,
             "delta": "Error: No prompt provided. Please include a 'prompt' key in the request.",
-        })
-        yield _sse_event({"type": "text-end", "id": text_part_id})
-        yield _sse_event({"type": "finish", "finishReason": "error"})
+        }
+        yield {"type": "text-end", "id": text_part_id}
+        yield {"type": "finish", "finishReason": "error"}
         return
 
     # Emit start events
-    yield _sse_event({"type": "start", "messageId": message_id})
-    yield _sse_event({"type": "text-start", "id": text_part_id})
+    yield {"type": "start", "messageId": message_id}
+    yield {"type": "text-start", "id": text_part_id}
 
-    # Create queue for passing events from callback to async generator
-    event_queue: queue.Queue = queue.Queue()
+    # Create auth URL queue for OAuth2 login flow
+    # The @requires_access_token decorator puts auth URLs here when consent is needed
+    auth_url_queue: asyncio.Queue[str] = asyncio.Queue()
 
-    # Callback handler that pushes text deltas to the queue
-    def streaming_callback(**kwargs):
-        """Callback handler that queues text deltas for streaming."""
-        if "data" in kwargs and isinstance(kwargs["data"], str):
-            event_queue.put({"text": kwargs["data"]})
+    # Event queue to merge stream events and auth URLs
+    # This allows us to yield auth URLs while the decorator is polling for tokens
+    event_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
 
     try:
-        # Create a session-bound agent with callback handler
-        agent = _create_session_agent(session_id, callback_handler=streaming_callback)
+        # Register the queue so @requires_access_token callbacks can use it
+        set_auth_url_queue(auth_url_queue)
 
-        # Run agent synchronously in thread pool (ensures session persistence)
-        loop = asyncio.get_event_loop()
-        future = loop.run_in_executor(_executor, _run_agent_sync, agent, prompt, event_queue)
+        # Create a session-bound agent
+        agent = _create_session_agent(session_id)
 
-        # Stream events from queue while agent runs
-        while True:
+        async def stream_events() -> None:
+            """Run agent stream and put events into merged queue."""
             try:
-                # Check for events with small timeout
-                event = event_queue.get(timeout=0.1)
+                async for event in agent.stream_async(prompt):
+                    if "data" in event and event["data"]:
+                        await event_queue.put({
+                            "type": "text-delta",
+                            "id": text_part_id,
+                            "delta": event["data"],
+                        })
+            except Exception as e:
+                logger.error(f"Stream error: {e}")
+                await event_queue.put({
+                    "type": "text-delta",
+                    "id": text_part_id,
+                    "delta": f"\n\nError: {str(e)}",
+                })
+            finally:
+                # Signal stream completion
+                await event_queue.put({"type": "_stream_done"})
 
-                if "_done" in event:
-                    break
-                elif "_error" in event:
-                    yield _sse_event({
-                        "type": "text-delta",
-                        "id": text_part_id,
-                        "delta": f"\n\nError: {event['_error']}",
-                    })
-                elif "text" in event and event["text"]:
-                    yield _sse_event({
-                        "type": "text-delta",
-                        "id": text_part_id,
-                        "delta": event["text"],
-                    })
+        async def monitor_auth_urls() -> None:
+            """Monitor auth URL queue and forward to event queue.
 
-            except queue.Empty:
-                # Check if executor is done
-                if future.done():
-                    # Drain remaining queue
-                    while not event_queue.empty():
-                        event = event_queue.get_nowait()
-                        if "text" in event and event["text"]:
-                            yield _sse_event({
-                                "type": "text-delta",
-                                "id": text_part_id,
-                                "delta": event["text"],
-                            })
+            This runs concurrently with stream_events, so auth URLs are
+            yielded immediately when the decorator puts them in the queue,
+            even if the decorator is blocking while polling for tokens.
+            """
+            while True:
+                try:
+                    # Wait for auth URL with timeout to allow checking for completion
+                    auth_url = await asyncio.wait_for(auth_url_queue.get(), timeout=0.1)
+                    logger.info("Auth URL monitor: forwarding auth_required event")
+                    await event_queue.put({"type": "auth_required", "authorization_url": auth_url})
+                except TimeoutError:
+                    # Check if we should stop (stream task done check happens in main loop)
+                    pass
+                except asyncio.CancelledError:
                     break
-                # Small yield to allow other coroutines
-                await asyncio.sleep(0.01)
+
+        # Start both tasks concurrently
+        stream_task = asyncio.create_task(stream_events())
+        auth_monitor_task = asyncio.create_task(monitor_auth_urls())
+
+        try:
+            # Yield events from merged queue until stream completes
+            while True:
+                try:
+                    event = await asyncio.wait_for(event_queue.get(), timeout=0.1)
+
+                    if event.get("type") == "_stream_done":
+                        # Stream finished, exit loop
+                        break
+
+                    yield event
+                except TimeoutError:
+                    # Check if stream task is done (shouldn't happen without _stream_done)
+                    if stream_task.done():
+                        break
+        finally:
+            # Clean up tasks
+            auth_monitor_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await auth_monitor_task
 
     except Exception as e:
         logger.error(f"Invoke error: {e}")
-        yield _sse_event({
+        yield {
             "type": "text-delta",
             "id": text_part_id,
             "delta": f"\n\nError: {str(e)}",
-        })
+        }
+    finally:
+        # Clean up queue reference to prevent stale references
+        set_auth_url_queue(None)
 
     # Emit end events
-    yield _sse_event({"type": "text-end", "id": text_part_id})
-    yield _sse_event({"type": "finish", "finishReason": "stop"})
+    yield {"type": "text-end", "id": text_part_id}
+    yield {"type": "finish", "finishReason": "stop"}
 
 
 if __name__ == "__main__":

@@ -13,7 +13,9 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAgentChat } from '@/hooks/useAgentChat'
+import type { AuthRequiredEvent } from '@/types'
 import {
   Conversation,
   ConversationContent,
@@ -61,12 +63,36 @@ function SunIcon({ className = '' }: { className?: string }) {
 // === Chat Page Component ===
 
 export default function ChatPage() {
+  const router = useRouter()
   const inputRef = useRef<HTMLTextAreaElement>(null)
   // AI SDK v6: input state is now managed separately from useChat
   const [input, setInput] = useState('')
 
+  /**
+   * Handle auth-required events from @requires_access_token decorated tools.
+   * Redirects user to login page with the AgentCore callback URL.
+   *
+   * Security: Generates CSRF state token stored in sessionStorage and passed
+   * through the OAuth2 flow for validation in the callback page (FR-023).
+   */
+  const handleAuthRequired = useCallback(
+    (_event: AuthRequiredEvent) => {
+      // Generate CSRF state token for OAuth2 flow protection
+      const csrfState = crypto.randomUUID()
+      sessionStorage.setItem('oauth_state', csrfState)
+
+      // Redirect to login page with current path as return destination
+      const returnUrl = window.location.pathname + window.location.search
+      const loginUrl = `/auth/login?redirect=${encodeURIComponent(returnUrl)}&state=${encodeURIComponent(csrfState)}`
+      router.push(loginUrl)
+    },
+    [router]
+  )
+
   // Direct browser-to-AgentCore chat (no API route needed for static export)
-  const { messages, status, error, sendMessage } = useAgentChat()
+  const { messages, status, error, sendMessage } = useAgentChat({
+    onAuthRequired: handleAuthRequired,
+  })
 
   const isLoading = status === 'streaming' || status === 'submitted'
 

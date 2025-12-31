@@ -4,17 +4,76 @@ This module provides reusable fixtures for testing:
 - DynamoDB mocking with moto
 - Sample data fixtures (guests, reservations, pricing)
 - Agent configuration fixtures
+- AgentCore Identity decorator mocking
 """
 
+import base64
+import json
 import os
+import sys
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from typing import Any, Generator
+from functools import wraps
+from typing import Any, Callable, Generator
 from unittest.mock import MagicMock, patch
 
 import boto3
 import pytest
 from moto import mock_aws
+
+
+# === AgentCore Identity Decorator Mock ===
+# This MUST be set up before any tool imports to mock @requires_access_token
+
+
+def _create_mock_jwt(sub: str = "test-cognito-sub-123", email: str = "test@example.com") -> str:
+    """Create a mock JWT token for testing.
+
+    The token has a valid structure that extract_cognito_claims() can parse.
+    """
+    header = {"alg": "RS256", "typ": "JWT"}
+    payload = {
+        "sub": sub,
+        "email": email,
+        "email_verified": True,
+        "iss": "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_TestPool",
+        "aud": "test-client-id-123",
+        "token_use": "access",
+        "exp": 9999999999,  # Far future
+    }
+    # Base64 encode without padding (JWT standard)
+    header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=")
+    payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    signature = "mock-signature"
+    return f"{header_b64}.{payload_b64}.{signature}"
+
+
+def _mock_requires_access_token(**decorator_kwargs: Any) -> Callable:
+    """Mock replacement for @requires_access_token decorator.
+
+    Creates a pass-through decorator that injects a mock access_token
+    parameter, bypassing the real AgentCore Identity token retrieval.
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            # Inject mock access_token if not provided
+            if "access_token" not in kwargs:
+                kwargs["access_token"] = _create_mock_jwt()
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+# Patch the decorator BEFORE any tool modules are imported
+# This must happen at conftest load time (before test collection)
+patch("bedrock_agentcore.identity.requires_access_token", _mock_requires_access_token).start()
+
+# Clear any cached imports of tools module to ensure decorator mock is applied
+# This handles cases where pytest might have pre-imported the module
+for module_name in list(sys.modules.keys()):
+    if module_name.startswith("src.tools"):
+        del sys.modules[module_name]
 
 # === Environment Setup ===
 
@@ -53,21 +112,6 @@ def reset_dynamodb_singleton() -> Generator[None, None, None]:
     reset_dynamodb_service()
     yield
     reset_dynamodb_service()
-
-
-@pytest.fixture(autouse=True)
-def reset_auth_service_singleton() -> Generator[None, None, None]:
-    """Reset auth service singleton before and after each test.
-
-    This ensures tests using mock_cognito_idp get a fresh service instance
-    inside the mock context rather than reusing a singleton from
-    a previous test or non-mocked context.
-    """
-    from src.tools.auth import _reset_auth_service
-
-    _reset_auth_service()
-    yield
-    _reset_auth_service()
 
 
 @pytest.fixture
@@ -414,3 +458,19 @@ def freeze_time() -> Generator[datetime, None, None]:
     """Fixture to provide a fixed datetime for testing."""
     fixed_time = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
     yield fixed_time
+
+
+@pytest.fixture
+def mock_tool_context() -> MagicMock:
+    """Create a mock ToolContext for tool testing.
+
+    The ToolContext is automatically injected by Strands when tools are called
+    via an agent. For direct tool testing, we need to provide a mock.
+    """
+    mock_ctx = MagicMock()
+    mock_ctx.tool_use = MagicMock()
+    mock_ctx.tool_use.tool_use_id = "test-tool-use-123"
+    mock_ctx.tool_use.name = "test_tool"
+    mock_ctx.agent = MagicMock()
+    mock_ctx.invocation_state = {}
+    return mock_ctx
