@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.models import Pricing
-from src.services.pricing import PricingService
+from shared.models import Pricing
+from shared.services.pricing import PricingService
 
 
 @pytest.fixture

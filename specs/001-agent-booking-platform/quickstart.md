@@ -56,15 +56,13 @@ git checkout -b 001-agent-booking-platform
 ```bash
 cd backend
 
-# Create virtual environment with uv
-uv venv
-source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
+# Install all workspace packages with uv sync
+uv sync --dev
 
-# Install dependencies
-uv pip install -e ".[dev]"
-
-# Verify Strands installation
-python -c "from strands import Agent; print('Strands OK')"
+# Verify installation (UV creates .venv automatically)
+uv run python -c "from strands import Agent; print('Strands OK')"
+uv run python -c "from shared.models import Reservation; print('Shared package OK')"
+uv run python -c "from api.main import app; print('API package OK')"
 ```
 
 **Environment Variables** (`backend/.env`):
@@ -157,16 +155,15 @@ Or set in `infrastructure/environments/dev.tfvars` / `prod.tfvars` as `agentcore
 
 ```bash
 cd backend
-source .venv/bin/activate
 
-# Run with hot reload (FastAPI app exported from src/api/__init__.py)
-python -m uvicorn src.api:app --reload --port 3001
+# Run API with hot reload (UV workspace)
+uv run --package api uvicorn api.main:app --reload --port 3001
 
 # Or run agent directly for testing (interactive CLI mode)
-python -m src.agent.booking_agent --interactive
+uv run --package agent python -m agent.booking_agent --interactive
 ```
 
-**Note**: The FastAPI `app` is exported from `backend/src/api/__init__.py`. The `src/api/health.py` module provides the health check endpoint registered on this app.
+**Note**: The FastAPI `app` is defined in `backend/api/src/api/main.py`. The `api.routes.health` module provides the health check endpoint.
 
 ### Start Frontend (Development Mode)
 
@@ -193,21 +190,20 @@ yarn dev
 
 ```bash
 cd backend
-source .venv/bin/activate
 
-# Run all tests
-pytest
+# Run all tests (UV handles venv automatically)
+uv run pytest
 
-# Run with coverage
-pytest --cov=src --cov-report=html
+# Run with coverage (covers all workspace packages)
+uv run pytest --cov=shared --cov=api --cov=agent --cov-report=html
 
 # Run specific test categories
-pytest tests/unit/           # Unit tests only
-pytest tests/integration/    # Integration tests
-pytest tests/contract/       # Contract tests
+uv run pytest tests/unit/           # Unit tests only
+uv run pytest tests/integration/    # Integration tests
+uv run pytest tests/contract/       # Contract tests
 
 # Run tests matching pattern
-pytest -k "test_availability"
+uv run pytest -k "test_availability"
 ```
 
 ### Frontend Tests
@@ -291,7 +287,7 @@ task tf:apply:prod
 
 ```bash
 cd backend
-python scripts/seed_data.py --env dev
+uv run python scripts/seed_data.py --env dev
 
 # Seeds:
 # - 2 years of availability dates
@@ -304,7 +300,7 @@ python scripts/seed_data.py --env dev
 ```bash
 # WARNING: Deletes all data!
 cd backend
-python scripts/reset_tables.py --env dev --confirm
+uv run python scripts/reset_tables.py --env dev --confirm
 ```
 
 ### View Agent Logs
@@ -321,7 +317,7 @@ aws logs tail /aws/agentcore/booking-prod --follow
 
 ```bash
 cd backend
-python -m src.agent.booking_agent --interactive
+uv run --package agent python -m agent.booking_agent --interactive
 
 # Or use curl
 curl -X POST http://localhost:3001/api/chat \
@@ -335,7 +331,8 @@ curl -X POST http://localhost:3001/api/chat \
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| `ModuleNotFoundError: strands` | Virtual env not activated | `source .venv/bin/activate` |
+| `ModuleNotFoundError: strands` | UV not synced | Run `uv sync` in backend/ |
+| `ModuleNotFoundError: shared` | UV workspace not synced | Run `uv sync --dev` in backend/ |
 | `AccessDenied` on DynamoDB | Missing IAM permissions | Check AWS credentials/role |
 | `Cognito: User pool not found` | Wrong pool ID or region | Verify `COGNITO_USER_POOL_ID` |
 | `Bedrock: Model not accessible` | Model not enabled | Enable in Bedrock console |
@@ -347,8 +344,9 @@ curl -X POST http://localhost:3001/api/chat \
 ### Debug Mode
 
 ```bash
-# Backend verbose logging
-LOG_LEVEL=DEBUG python -m uvicorn src.api:app --reload
+# Backend verbose logging (UV workspace)
+cd backend
+LOG_LEVEL=DEBUG uv run --package api uvicorn api.main:app --reload
 
 # Frontend verbose logging
 DEBUG=* yarn dev
@@ -372,15 +370,28 @@ aws cognito-idp describe-user-pool --user-pool-id $COGNITO_USER_POOL_ID
 ```
 booking/
 ├── Taskfile.yaml            # ⚠️ ALL terraform commands via this (never manual)
-├── backend/
-│   ├── src/
-│   │   ├── agent/           # Strands agent definition
-│   │   ├── tools/           # MCP tool implementations
-│   │   ├── models/          # Pydantic data models
-│   │   ├── services/        # Business logic
-│   │   └── api/             # FastAPI endpoints
-│   ├── tests/
-│   └── pyproject.toml
+├── backend/                 # UV workspace root
+│   ├── pyproject.toml       # Workspace definition (members: agent, api, shared)
+│   ├── shared/              # Shared components package
+│   │   ├── pyproject.toml
+│   │   └── src/shared/
+│   │       ├── models/      # Pydantic data models
+│   │       ├── services/    # Business logic (DynamoDB, booking, etc.)
+│   │       ├── tools/       # @tool decorated functions
+│   │       └── utils/       # Utilities (JWT, etc.)
+│   ├── api/                 # FastAPI REST API package
+│   │   ├── pyproject.toml
+│   │   └── src/api/
+│   │       ├── main.py      # FastAPI app + Mangum handler
+│   │       ├── routes/      # API routers (auth, health)
+│   │       └── middleware/  # Request/response middleware
+│   ├── agent/               # Strands Agent package
+│   │   ├── pyproject.toml
+│   │   └── src/agent/
+│   │       ├── main.py      # Lambda handler
+│   │       ├── booking_agent.py
+│   │       └── prompts/     # System prompts
+│   └── tests/               # Tests (shared across packages)
 ├── frontend/
 │   ├── .yarnrc.yml          # Yarn Berry config (nodeLinker: node-modules)
 │   ├── src/

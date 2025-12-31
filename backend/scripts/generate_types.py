@@ -81,7 +81,7 @@ def generate_json_schema_fallback(backend_dir: Path, frontend_types_dir: Path) -
     sys.path.insert(0, str(backend_dir))
 
     try:
-        from src.models import (
+        from shared.models import (
             Availability,
             AvailabilityRange,
             AvailabilityResponse,

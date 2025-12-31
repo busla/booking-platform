@@ -1,1 +1,1 @@
-"""Integration tests for the booking platform."""
+"""Integration tests for the Booking backend."""

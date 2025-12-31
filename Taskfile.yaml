@@ -67,7 +67,7 @@ tasks:
     desc: Run backend in development mode
     dir: backend
     cmds:
-      - uv run uvicorn src.api_app:app --reload --port 3001
+      - uv run --package api uvicorn api.main:app --reload --port 3001
 
   backend:test:
     desc: Run backend tests
@@ -79,19 +79,19 @@ tasks:
     desc: Run backend tests with coverage
     dir: backend
     cmds:
-      - uv run pytest --cov=src --cov-report=html
+      - uv run pytest --cov=shared --cov=api --cov=agent --cov-report=html
 
   backend:lint:
     desc: Lint backend code
     dir: backend
     cmds:
-      - uv run ruff check src tests
+      - uv run ruff check shared/src api/src agent/src tests
 
   backend:typecheck:
     desc: Type check backend code
     dir: backend
     cmds:
-      - uv run mypy src
+      - uv run mypy shared/src api/src agent/src
 
   # ============================================================================
   # Frontend Commands

@@ -68,6 +68,7 @@ out/
 # Terraform
 infrastructure/.terraform*/
 infrastructure/builds/
+infrastructure/modules/*/builds/
 *.tfstate
 *.tfstate.*
 *.tfplan

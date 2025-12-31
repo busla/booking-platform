@@ -1,0 +1,23 @@
+[project]
+name = "agent"
+version = "0.1.0"
+description = "Strands Agent for Booking platform"
+requires-python = ">=3.13,<3.14"
+license = { text = "MIT" }
+
+dependencies = [
+  "strands-agents>=0.1.0",
+  "strands-agents-tools>=0.1.0",
+  "bedrock-agentcore>=0.1.0",
+  "shared",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.2,<0.10.0"]
+build-backend = "uv_build"
+
+# UV build backend expects src/agent layout by default
+
+# Workspace dependency: use local shared package
+[tool.uv.sources]
+shared = { workspace = true }

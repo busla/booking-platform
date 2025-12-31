@@ -6,8 +6,8 @@ apartment information to guests.
 
 import pytest
 
-from src.models import Address, Coordinates, Photo, PhotoCategory, Property
-from src.tools.property import (
+from shared.models import Address, Coordinates, Photo, PhotoCategory, Property
+from shared.tools.property import (
     get_property_details,
     load_property_data_from_dict,
     set_property_data_store,
@@ -83,7 +83,7 @@ class TestPropertyModel:
     def test_creates_valid_property(self, sample_property_data: dict) -> None:
         """Should create a valid Property instance."""
         load_property_data_from_dict(sample_property_data)
-        from src.tools.property import get_property_data_store
+        from shared.tools.property import get_property_data_store
 
         prop = get_property_data_store()
 
@@ -95,7 +95,7 @@ class TestPropertyModel:
     def test_property_has_address(self, sample_property_data: dict) -> None:
         """Should include full address details."""
         load_property_data_from_dict(sample_property_data)
-        from src.tools.property import get_property_data_store
+        from shared.tools.property import get_property_data_store
 
         prop = get_property_data_store()
 
@@ -106,7 +106,7 @@ class TestPropertyModel:
     def test_property_has_coordinates(self, sample_property_data: dict) -> None:
         """Should include GPS coordinates."""
         load_property_data_from_dict(sample_property_data)
-        from src.tools.property import get_property_data_store
+        from shared.tools.property import get_property_data_store
 
         prop = get_property_data_store()
 
@@ -117,7 +117,7 @@ class TestPropertyModel:
     def test_property_has_amenities_list(self, sample_property_data: dict) -> None:
         """Should include list of amenities."""
         load_property_data_from_dict(sample_property_data)
-        from src.tools.property import get_property_data_store
+        from shared.tools.property import get_property_data_store
 
         prop = get_property_data_store()
 

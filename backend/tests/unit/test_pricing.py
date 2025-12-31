@@ -12,7 +12,7 @@ import pytest
 from moto import mock_aws
 
 # Import will work once tools are implemented
-# from src.tools.pricing import get_pricing, calculate_total
+# from shared.tools.pricing import get_pricing, calculate_total
 
 
 class TestGetPricing:

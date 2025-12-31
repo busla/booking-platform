@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Quick test script for the Quesada Apartment booking agent."""
 
-from src.agent import create_booking_agent
+from agent import create_booking_agent
 
 
 def main() -> None:

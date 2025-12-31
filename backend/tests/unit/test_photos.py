@@ -6,8 +6,8 @@ photos to guests with filtering by category.
 
 import pytest
 
-from src.models import PhotoCategory
-from src.tools.property import (
+from shared.models import PhotoCategory
+from shared.tools.property import (
     get_photos,
     load_property_data_from_dict,
     set_property_data_store,

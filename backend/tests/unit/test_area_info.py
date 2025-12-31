@@ -6,8 +6,8 @@ knowledge about golf courses, beaches, restaurants, and activities.
 
 import pytest
 
-from src.models import AreaCategory, AreaInfo
-from src.tools.area_info import (
+from shared.models import AreaCategory, AreaInfo
+from shared.tools.area_info import (
     get_area_info,
     load_area_data_from_dicts,
     set_area_data_store,

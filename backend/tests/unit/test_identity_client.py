@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.models.auth import WorkloadToken
+from shared.models.auth import WorkloadToken
 
 
 class TestGetWorkloadToken:
@@ -27,14 +27,14 @@ class TestGetWorkloadToken:
         mock_agentcore_identity_client: MagicMock,
     ) -> None:
         """Should return WorkloadToken model on successful anonymous token fetch."""
-        from src.services.identity_client import IdentityClient
+        from shared.services.identity_client import IdentityClient
 
         # Given: AgentCore Identity SDK returns a valid token response
         # (mock is configured in fixture)
 
         # When: Getting workload token (anonymous mode)
         with patch(
-            "src.services.identity_client.AgentCoreIdentityClient",
+            "shared.services.identity_client.AgentCoreIdentityClient",
             return_value=mock_agentcore_identity_client,
         ):
             client = IdentityClient(workload_name="cognito")
@@ -53,11 +53,11 @@ class TestGetWorkloadToken:
         mock_agentcore_identity_client: MagicMock,
     ) -> None:
         """Should return cached token if not expired."""
-        from src.services.identity_client import IdentityClient
+        from shared.services.identity_client import IdentityClient
 
         # Given: First call returns a valid token
         with patch(
-            "src.services.identity_client.AgentCoreIdentityClient",
+            "shared.services.identity_client.AgentCoreIdentityClient",
             return_value=mock_agentcore_identity_client,
         ):
             client = IdentityClient(workload_name="cognito")
@@ -76,7 +76,7 @@ class TestGetWorkloadToken:
         mock_agentcore_identity_client: MagicMock,
     ) -> None:
         """Should fetch new token when cached token is expired."""
-        from src.services.identity_client import IdentityClient
+        from shared.services.identity_client import IdentityClient
 
         # Given: First call returns an already-expired token
         expired_time = datetime.now(timezone.utc) - timedelta(minutes=5)
@@ -87,7 +87,7 @@ class TestGetWorkloadToken:
         }
 
         with patch(
-            "src.services.identity_client.AgentCoreIdentityClient",
+            "shared.services.identity_client.AgentCoreIdentityClient",
             return_value=mock_agentcore_identity_client,
         ):
             client = IdentityClient(workload_name="cognito")
@@ -117,7 +117,7 @@ class TestGetWorkloadToken:
         mock_agentcore_identity_client: MagicMock,
     ) -> None:
         """Should return user-delegated token when user_id is provided."""
-        from src.services.identity_client import IdentityClient
+        from shared.services.identity_client import IdentityClient
 
         # Given: AgentCore returns user-delegated token
         mock_agentcore_identity_client.get_workload_access_token.return_value = {
@@ -130,7 +130,7 @@ class TestGetWorkloadToken:
 
         # When: Getting workload token with user_id
         with patch(
-            "src.services.identity_client.AgentCoreIdentityClient",
+            "shared.services.identity_client.AgentCoreIdentityClient",
             return_value=mock_agentcore_identity_client,
         ):
             client = IdentityClient(workload_name="cognito")
@@ -152,7 +152,7 @@ class TestGetWorkloadToken:
         mock_agentcore_identity_client: MagicMock,
     ) -> None:
         """Should return token when user_token (JWT) is provided."""
-        from src.services.identity_client import IdentityClient
+        from shared.services.identity_client import IdentityClient
 
         # Given: AgentCore returns JWT-delegated token
         mock_agentcore_identity_client.get_workload_access_token.return_value = {
@@ -165,7 +165,7 @@ class TestGetWorkloadToken:
 
         # When: Getting workload token with user_token
         with patch(
-            "src.services.identity_client.AgentCoreIdentityClient",
+            "shared.services.identity_client.AgentCoreIdentityClient",
             return_value=mock_agentcore_identity_client,
         ):
             client = IdentityClient(workload_name="cognito")
@@ -192,7 +192,7 @@ class TestGetWorkloadTokenErrorHandling:
         """Should raise exception when AgentCore SDK fails."""
         from botocore.exceptions import ClientError
 
-        from src.services.identity_client import IdentityClient
+        from shared.services.identity_client import IdentityClient
 
         # Given: SDK raises a client error
         mock_agentcore_identity_client.get_workload_access_token.side_effect = (
@@ -209,7 +209,7 @@ class TestGetWorkloadTokenErrorHandling:
 
         # When/Then: Should propagate the error
         with patch(
-            "src.services.identity_client.AgentCoreIdentityClient",
+            "shared.services.identity_client.AgentCoreIdentityClient",
             return_value=mock_agentcore_identity_client,
         ):
             client = IdentityClient(workload_name="cognito")

@@ -217,7 +217,7 @@ class TestReturningUserTokenReuse:
         Simulates: User returns, makes several queries about their reservations.
         Expected: All queries succeed without re-authentication prompts.
         """
-        from src.tools.reservations import get_my_reservations
+        from shared.tools.reservations import get_my_reservations
 
         # First call
         result1 = await get_my_reservations(tool_context=mock_tool_context)
@@ -249,7 +249,7 @@ class TestReturningUserTokenReuse:
         Simulates: User creates a reservation, then queries their reservations.
         Expected: Both operations succeed with the same authenticated session.
         """
-        from src.tools.reservations import create_reservation, get_my_reservations
+        from shared.tools.reservations import create_reservation, get_my_reservations
 
         check_in = _date_str(0)
         check_out = _date_str(4)
@@ -288,7 +288,7 @@ class TestReturningUserTokenReuse:
         Simulates: User creates reservation, returns later to modify it.
         Expected: Modification succeeds because token is still valid.
         """
-        from src.tools.reservations import create_reservation, modify_reservation
+        from shared.tools.reservations import create_reservation, modify_reservation
 
         check_in = _date_str(0)
         check_out = _date_str(3)
@@ -331,7 +331,7 @@ class TestJWTClaimExtraction:
 
         The authenticated_email in response should match the JWT email claim.
         """
-        from src.tools.reservations import create_reservation
+        from shared.tools.reservations import create_reservation
 
         result = await create_reservation(
             check_in=_date_str(0),
@@ -356,7 +356,7 @@ class TestJWTClaimExtraction:
         The tool should use the JWT sub claim to find the guest record,
         ensuring proper data isolation.
         """
-        from src.tools.reservations import get_my_reservations
+        from shared.tools.reservations import get_my_reservations
 
         result = await get_my_reservations(tool_context=mock_tool_context)
 
@@ -410,7 +410,7 @@ class TestDataIsolation:
             }
         )
 
-        from src.tools.reservations import get_my_reservations
+        from shared.tools.reservations import get_my_reservations
 
         # Query with test user token (cognito_sub="test-cognito-sub-123")
         result = await get_my_reservations(tool_context=mock_tool_context)
@@ -457,7 +457,7 @@ class TestDataIsolation:
             }
         )
 
-        from src.tools.reservations import modify_reservation
+        from shared.tools.reservations import modify_reservation
 
         # Try to modify other user's reservation
         result = await modify_reservation(

@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.models.oauth2_session import OAuth2Session, OAuth2SessionStatus
+from shared.models.oauth2_session import OAuth2Session, OAuth2SessionStatus
 
 
 class TestConcurrentSessionIsolation:
@@ -28,7 +28,7 @@ class TestConcurrentSessionIsolation:
         mock_dynamodb_table: MagicMock,
     ) -> None:
         """Should retrieve correct session when multiple exist."""
-        from src.services.dynamodb import DynamoDBService
+        from shared.services.dynamodb import DynamoDBService
 
         # Given: Two concurrent sessions for different users
         session_alice = {
@@ -82,7 +82,7 @@ class TestCompleteResourceTokenAuth:
         mock_dynamodb_service: MagicMock,
     ) -> None:
         """Should complete auth when user_identifier matches session guest_email."""
-        from src.services.identity_client import IdentityClient
+        from shared.services.identity_client import IdentityClient
 
         # Given: Session exists with guest_email
         session_id = "session-match"
@@ -105,11 +105,11 @@ class TestCompleteResourceTokenAuth:
 
         # When: Completing OAuth2 with matching email
         with patch(
-            "src.services.identity_client.AgentCoreIdentityClient",
+            "shared.services.identity_client.AgentCoreIdentityClient",
             return_value=mock_identity_client,
         ):
             with patch(
-                "src.services.identity_client.get_dynamodb_service",
+                "shared.services.identity_client.get_dynamodb_service",
                 return_value=mock_dynamodb_service,
             ):
                 client = IdentityClient(workload_name="cognito")
@@ -127,7 +127,7 @@ class TestCompleteResourceTokenAuth:
         mock_dynamodb_service: MagicMock,
     ) -> None:
         """Should fail when user_identifier doesn't match session guest_email."""
-        from src.services.identity_client import IdentityClient
+        from shared.services.identity_client import IdentityClient
 
         # Given: Session exists with different guest_email
         session_id = "session-mismatch"
@@ -145,11 +145,11 @@ class TestCompleteResourceTokenAuth:
 
         # When: Completing OAuth2 with wrong email
         with patch(
-            "src.services.identity_client.AgentCoreIdentityClient",
+            "shared.services.identity_client.AgentCoreIdentityClient",
             return_value=mock_identity_client,
         ):
             with patch(
-                "src.services.identity_client.get_dynamodb_service",
+                "shared.services.identity_client.get_dynamodb_service",
                 return_value=mock_dynamodb_service,
             ):
                 client = IdentityClient(workload_name="cognito")
@@ -170,18 +170,18 @@ class TestCompleteResourceTokenAuth:
         mock_dynamodb_service: MagicMock,
     ) -> None:
         """Should fail when session_id doesn't exist."""
-        from src.services.identity_client import IdentityClient
+        from shared.services.identity_client import IdentityClient
 
         # Given: Session doesn't exist
         mock_dynamodb_service.get_oauth2_session.return_value = None
 
         # When: Completing OAuth2 with unknown session
         with patch(
-            "src.services.identity_client.AgentCoreIdentityClient",
+            "shared.services.identity_client.AgentCoreIdentityClient",
             return_value=mock_identity_client,
         ):
             with patch(
-                "src.services.identity_client.get_dynamodb_service",
+                "shared.services.identity_client.get_dynamodb_service",
                 return_value=mock_dynamodb_service,
             ):
                 client = IdentityClient(workload_name="cognito")
@@ -200,7 +200,7 @@ class TestCallbackSessionCorrelation:
         mock_dynamodb_table: MagicMock,
     ) -> None:
         """Should correctly correlate session_id to stored guest_email."""
-        from src.services.dynamodb import DynamoDBService
+        from shared.services.dynamodb import DynamoDBService
 
         # Given: Session stored with guest_email
         session_id = "session-callback"

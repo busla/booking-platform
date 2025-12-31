@@ -12,7 +12,7 @@ import pytest
 from moto import mock_aws
 
 # Import will work once tools are implemented
-# from src.tools.availability import check_availability, get_calendar
+# from shared.tools.availability import check_availability, get_calendar
 
 
 class TestCheckAvailability:
