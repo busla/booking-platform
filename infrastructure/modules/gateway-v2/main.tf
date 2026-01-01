@@ -200,7 +200,7 @@ module "lambda" {
 
 locals {
   # Compute Lambda ARN without depending on Lambda module output (breaks dependency cycle)
-  lambda_function_arn = "arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:${module.label.id}"
+  lambda_function_arn = "arn:aws:lambda:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:function:${module.label.id}"
 }
 
 data "external" "openapi" {

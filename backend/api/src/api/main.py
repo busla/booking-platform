@@ -17,6 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
+from api.docs import router as docs_router
 from api.exceptions import register_exception_handlers
 from api.routes.area import router as area_router
 from api.routes.availability import router as availability_router
@@ -34,6 +35,10 @@ app = FastAPI(
     title="Booking Platform API",
     description="REST API for authentication and booking operations",
     version="0.1.0",
+    # Disable default docs - we serve gateway-patched OpenAPI via custom endpoints
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 # Configure CORS for local development
@@ -51,6 +56,7 @@ register_exception_handlers(app)
 # Include routers at root level
 # REST API stage name 'api' provides the /api prefix in the URL
 # Final URL: https://xxx.execute-api.region.amazonaws.com/api/health
+app.include_router(docs_router)
 app.include_router(health_router)
 app.include_router(availability_router)
 app.include_router(pricing_router)
