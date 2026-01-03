@@ -10,7 +10,7 @@ class VerificationCode(BaseModel):
 
     model_config = ConfigDict(strict=True)
 
-    email: EmailStr = Field(..., description="Guest email")
+    email: EmailStr = Field(..., description="Customer email")
     code: str = Field(..., min_length=6, max_length=6, description="6-digit code")
     expires_at: int = Field(..., description="Unix timestamp (TTL)")
     attempts: int = Field(default=0, ge=0, description="Failed attempt count")
@@ -40,6 +40,6 @@ class VerificationResult(BaseModel):
     model_config = ConfigDict(strict=True)
 
     success: bool
-    guest_id: str | None = None
+    customer_id: str | None = None
     error: str | None = None
-    is_new_guest: bool = False
+    is_new_customer: bool = False

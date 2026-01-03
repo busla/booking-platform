@@ -6,9 +6,9 @@ output "dynamodb_reservations_table_name" {
   value       = module.dynamodb.reservations_table_name
 }
 
-output "dynamodb_guests_table_name" {
-  description = "Name of the guests DynamoDB table"
-  value       = module.dynamodb.guests_table_name
+output "dynamodb_customers_table_name" {
+  description = "Name of the customers DynamoDB table"
+  value       = module.dynamodb.customers_table_name
 }
 
 output "dynamodb_availability_table_name" {

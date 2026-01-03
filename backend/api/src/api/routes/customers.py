@@ -196,8 +196,8 @@ class CustomerResponse(BaseModel):
 
     model_config = ConfigDict(strict=True)
 
-    guest_id: str = Field(..., description="Unique guest ID (UUID)")
-    email: str = Field(..., description="Guest email address")
+    customer_id: str = Field(..., description="Unique customer ID (UUID)")
+    email: str = Field(..., description="Customer email address")
     cognito_sub: str | None = Field(default=None, description="Cognito user sub")
     name: str | None = Field(default=None, description="Full name")
     phone: str | None = Field(default=None, description="Phone number")
@@ -231,9 +231,9 @@ def get_customer_me(
         HTTPException: 401 if not authenticated, 404 if profile not found
     """
     db = get_dynamodb_service()
-    guest = db.get_guest_by_cognito_sub(cognito_sub)
+    customer = db.get_customer_by_cognito_sub(cognito_sub)
 
-    if guest is None:
+    if customer is None:
         logger.info(
             "customer_profile_not_found",
             extra={"cognito_sub": cognito_sub[:8] + "...", "action": "get"},
@@ -247,10 +247,10 @@ def get_customer_me(
         "customer_profile_retrieved",
         extra={
             "cognito_sub": cognito_sub[:8] + "...",
-            "guest_id": guest.get("guest_id", "")[:8] + "...",
+            "customer_id": customer.get("customer_id", "")[:8] + "...",
         },
     )
-    return guest
+    return customer
 
 
 @router.post("/me", response_model=CustomerResponse, status_code=201)
@@ -276,13 +276,13 @@ def create_customer_me(
     db = get_dynamodb_service()
 
     # Check if profile already exists
-    existing = db.get_guest_by_cognito_sub(cognito_sub)
+    existing = db.get_customer_by_cognito_sub(cognito_sub)
     if existing is not None:
         logger.warning(
             "customer_profile_already_exists",
             extra={
                 "cognito_sub": cognito_sub[:8] + "...",
-                "existing_guest_id": existing.get("guest_id", "")[:8] + "...",
+                "existing_customer_id": existing.get("customer_id", "")[:8] + "...",
             },
         )
         raise HTTPException(
@@ -290,11 +290,11 @@ def create_customer_me(
             detail="Customer profile already exists",
         )
 
-    # Create new guest record
+    # Create new customer record
     now = datetime.now(timezone.utc).isoformat()
-    guest_id = str(uuid.uuid4())
-    guest = {
-        "guest_id": guest_id,
+    customer_id = str(uuid.uuid4())
+    customer = {
+        "customer_id": customer_id,
         "email": email,
         "cognito_sub": cognito_sub,
         "name": data.name,
@@ -305,7 +305,7 @@ def create_customer_me(
         "updated_at": now,
     }
 
-    db.create_guest(guest)
+    db.create_customer(customer)
 
     # Mask email for logging (privacy)
     masked_email = email[:3] + "***" + email[email.find("@") :] if "@" in email else "***"
@@ -313,12 +313,12 @@ def create_customer_me(
         "customer_profile_created",
         extra={
             "cognito_sub": cognito_sub[:8] + "...",
-            "guest_id": guest_id[:8] + "...",
+            "customer_id": customer_id[:8] + "...",
             "email_masked": masked_email,
             "preferred_language": data.preferred_language,
         },
     )
-    return guest
+    return customer
 
 
 @router.put("/me", response_model=CustomerResponse)
@@ -340,7 +340,7 @@ def update_customer_me(
     db = get_dynamodb_service()
 
     # Check if profile exists
-    existing = db.get_guest_by_cognito_sub(cognito_sub)
+    existing = db.get_customer_by_cognito_sub(cognito_sub)
     if existing is None:
         logger.info(
             "customer_profile_not_found",
@@ -378,8 +378,8 @@ def update_customer_me(
     update_expression = "SET " + ", ".join(update_parts)
 
     result = db.update_item(
-        table="guests",
-        key={"guest_id": existing["guest_id"]},
+        table="customers",
+        key={"customer_id": existing["customer_id"]},
         update_expression=update_expression,
         expression_attribute_values=expression_values,
         expression_attribute_names=expression_names,
@@ -391,7 +391,7 @@ def update_customer_me(
         "customer_profile_updated",
         extra={
             "cognito_sub": cognito_sub[:8] + "...",
-            "guest_id": existing.get("guest_id", "")[:8] + "...",
+            "customer_id": existing.get("customer_id", "")[:8] + "...",
             "updated_fields": updated_field_names,
         },
     )

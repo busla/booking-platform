@@ -18,7 +18,7 @@ class Reservation(BaseModel):
     reservation_id: str = Field(
         ..., description="Unique reservation ID (e.g., RES-2025-001234)"
     )
-    guest_id: str = Field(..., description="Reference to Guest")
+    customer_id: str = Field(..., description="Reference to Customer")
     check_in: date = Field(..., description="Check-in date")
     check_out: date = Field(..., description="Check-out date")
     num_adults: int = Field(..., ge=1, description="Number of adult guests")
@@ -30,7 +30,7 @@ class Reservation(BaseModel):
     nightly_rate: int = Field(..., ge=0, description="Rate per night in EUR cents")
     nights: int = Field(..., ge=1, description="Number of nights")
     special_requests: str | None = Field(
-        default=None, description="Guest special requests"
+        default=None, description="Customer special requests"
     )
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
@@ -50,7 +50,7 @@ class ReservationCreate(BaseModel):
 
     model_config = ConfigDict(strict=True)
 
-    guest_id: str
+    customer_id: str
     check_in: date
     check_out: date
     num_adults: int = Field(..., ge=1)

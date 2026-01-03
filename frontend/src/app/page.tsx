@@ -37,7 +37,7 @@ export default function HomePage() {
         <Hero
           title="Your Costa Blanca Escape"
           subtitle="Experience the perfect blend of Spanish sunshine, relaxation, and adventure at our beautiful Quesada apartment."
-          backgroundImage="/images/hero-pool.jpg"
+          backgroundImage="/photos/hero.jpg"
           ctaText="Book Your Stay"
           ctaHref="/book"
           secondaryCtaText="Chat with Agent"

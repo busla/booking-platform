@@ -66,7 +66,7 @@ def extract_cognito_claims(auth_token: str | None) -> tuple[str | None, str | No
     Example:
         >>> sub, email = extract_cognito_claims(request_payload.get("auth_token"))
         >>> if sub:
-        ...     guest = db.get_guest_by_cognito_sub(sub)
+        ...     customer = db.get_customer_by_cognito_sub(sub)
     """
     if not auth_token:
         return None, None
@@ -103,7 +103,7 @@ def extract_cognito_sub(auth_token: str | None) -> str | None:
     Example:
         >>> sub = extract_cognito_sub(request_payload.get("auth_token"))
         >>> if sub:
-        ...     guest = db.get_guest_by_cognito_sub(sub)
+        ...     customer = db.get_customer_by_cognito_sub(sub)
     """
     sub, _ = extract_cognito_claims(auth_token)
     return sub

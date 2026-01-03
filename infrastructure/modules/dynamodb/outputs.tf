@@ -10,14 +10,14 @@ output "reservations_table_arn" {
   value       = module.reservations.dynamodb_table_arn
 }
 
-output "guests_table_name" {
-  description = "Name of the guests table"
-  value       = module.guests.dynamodb_table_id
+output "customers_table_name" {
+  description = "Name of the customers table"
+  value       = module.customers.dynamodb_table_id
 }
 
-output "guests_table_arn" {
-  description = "ARN of the guests table"
-  value       = module.guests.dynamodb_table_arn
+output "customers_table_arn" {
+  description = "ARN of the customers table"
+  value       = module.customers.dynamodb_table_arn
 }
 
 output "availability_table_name" {
@@ -74,7 +74,7 @@ output "table_arns" {
   description = "List of all table ARNs for IAM policies"
   value = [
     module.reservations.dynamodb_table_arn,
-    module.guests.dynamodb_table_arn,
+    module.customers.dynamodb_table_arn,
     module.availability.dynamodb_table_arn,
     module.pricing.dynamodb_table_arn,
     module.payments.dynamodb_table_arn,

@@ -463,6 +463,8 @@ This project follows the Booking Constitution (v1.1.0):
 - AWS API Gateway REST API (OpenAPI-provisioned), Cognito User Pools authorizer, explicit deployment/stage resources (008-rest-api-gateway)
 - TypeScript 5.7+ (strict mode), Next.js 14+ (App Router, static export) + React Day Picker, Leaflet + React-Leaflet, Generated OpenAPI TypeScript Client, Vercel AI SDK v6, ai-elements, Lucide React, Tailwind CSS (009-booking-frontend)
 - DynamoDB (POIs table via backend API), existing backend services (availability, pricing, reservations) (009-booking-frontend)
+- TypeScript 5.7+ (frontend), Python 3.13+ (backend) + Next.js 14+, shadcn/ui (Radix primitives), Tailwind CSS, AWS Amplify, FastAPI, Pydantic v2 (011-cleanup-shadcn-auth)
+- AWS DynamoDB (`customers` table - renamed from `guests`), AWS Cognito (all profile fields: email, phone_number, name) (011-cleanup-shadcn-auth)
 
 ## Recent Changes
 - 008-rest-api-gateway: Migrate gateway-v2 module from HTTP API to REST API; Cognito User Pools authorizer, explicit OPTIONS methods for CORS, deployment triggers

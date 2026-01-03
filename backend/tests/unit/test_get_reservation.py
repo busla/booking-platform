@@ -1,7 +1,7 @@
 """Unit tests for get_reservation tool (T093).
 
 Tests the get_reservation functionality that retrieves
-existing booking details for guests.
+existing booking details for customers.
 """
 
 from datetime import date, datetime, timezone
@@ -25,7 +25,7 @@ class TestGetReservation:
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2025-07-15",
             "check_out": "2025-07-22",
             "nights": 7,
@@ -81,7 +81,7 @@ class TestGetReservation:
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2025-07-15",
             "check_out": "2025-07-22",
             "nights": 7,
@@ -110,7 +110,7 @@ class TestGetReservation:
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2025-07-15",
             "check_out": "2025-07-22",
             "nights": 7,
@@ -135,14 +135,14 @@ class TestGetReservationScenarios:
     """Scenario-based tests for get_reservation."""
 
     @patch("shared.tools.reservations._get_db")
-    def test_guest_checks_upcoming_booking(self, mock_get_db: MagicMock) -> None:
-        """Guest asking 'What's my booking?' should get reservation details."""
+    def test_customer_checks_upcoming_booking(self, mock_get_db: MagicMock) -> None:
+        """Customer asking 'What's my booking?' should get reservation details."""
         from shared.tools.reservations import get_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2025-08-01",
             "check_out": "2025-08-08",
             "nights": 7,
@@ -163,14 +163,14 @@ class TestGetReservationScenarios:
         assert result["num_children"] == 2
 
     @patch("shared.tools.reservations._get_db")
-    def test_guest_checks_pending_payment(self, mock_get_db: MagicMock) -> None:
-        """Guest with pending payment should see payment reminder."""
+    def test_customer_checks_pending_payment(self, mock_get_db: MagicMock) -> None:
+        """Customer with pending payment should see payment reminder."""
         from shared.tools.reservations import get_reservation
 
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2025-08-01",
             "check_out": "2025-08-08",
             "nights": 7,

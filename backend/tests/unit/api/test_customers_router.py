@@ -235,9 +235,9 @@ class TestGetCustomerMe:
         app.include_router(router)
         client = TestClient(app)
 
-        # Mock guest data from DynamoDB
-        mock_guest = {
-            "guest_id": "guest-uuid-12345",
+        # Mock customer data from DynamoDB
+        mock_customer = {
+            "customer_id": "customer-uuid-12345",
             "email": "test@example.com",
             "cognito_sub": "cognito-sub-abc123",
             "name": "Test User",
@@ -252,7 +252,7 @@ class TestGetCustomerMe:
             "api.routes.customers.get_dynamodb_service"
         ) as mock_get_db:
             mock_db = mock_get_db.return_value
-            mock_db.get_guest_by_cognito_sub.return_value = mock_guest
+            mock_db.get_customer_by_cognito_sub.return_value = mock_customer
 
             response = client.get(
                 "/customers/me",
@@ -281,7 +281,7 @@ class TestGetCustomerMe:
             "api.routes.customers.get_dynamodb_service"
         ) as mock_get_db:
             mock_db = mock_get_db.return_value
-            mock_db.get_guest_by_cognito_sub.return_value = None
+            mock_db.get_customer_by_cognito_sub.return_value = None
 
             response = client.get(
                 "/customers/me",
@@ -331,8 +331,8 @@ class TestCreateCustomerMe:
         ) as mock_get_db:
             mock_db = mock_get_db.return_value
             # No existing profile
-            mock_db.get_guest_by_cognito_sub.return_value = None
-            mock_db.create_guest.return_value = True
+            mock_db.get_customer_by_cognito_sub.return_value = None
+            mock_db.create_customer.return_value = True
 
             response = client.post(
                 "/customers/me",
@@ -352,7 +352,7 @@ class TestCreateCustomerMe:
         assert data["email"] == "newuser@example.com"
         assert data["name"] == "New User"
         assert data["preferred_language"] == "es"
-        assert "guest_id" in data
+        assert "customer_id" in data
 
     def test_returns_409_when_profile_already_exists(self) -> None:
         """POST /customers/me returns 409 if profile already exists."""
@@ -366,8 +366,8 @@ class TestCreateCustomerMe:
         app.include_router(router)
         client = TestClient(app)
 
-        existing_guest = {
-            "guest_id": "existing-uuid",
+        existing_customer = {
+            "customer_id": "existing-uuid",
             "cognito_sub": "cognito-sub-existing",
             "email": "existing@example.com",
         }
@@ -376,7 +376,7 @@ class TestCreateCustomerMe:
             "api.routes.customers.get_dynamodb_service"
         ) as mock_get_db:
             mock_db = mock_get_db.return_value
-            mock_db.get_guest_by_cognito_sub.return_value = existing_guest
+            mock_db.get_customer_by_cognito_sub.return_value = existing_customer
 
             response = client.post(
                 "/customers/me",
@@ -488,8 +488,8 @@ class TestUpdateCustomerMe:
         app.include_router(router)
         client = TestClient(app)
 
-        existing_guest = {
-            "guest_id": "guest-uuid-12345",
+        existing_customer = {
+            "customer_id": "customer-uuid-12345",
             "email": "test@example.com",
             "cognito_sub": "cognito-sub-abc123",
             "name": "Old Name",
@@ -497,8 +497,8 @@ class TestUpdateCustomerMe:
             "preferred_language": "en",
         }
 
-        updated_guest = {
-            **existing_guest,
+        updated_customer = {
+            **existing_customer,
             "name": "New Name",
             "preferred_language": "es",
         }
@@ -507,8 +507,8 @@ class TestUpdateCustomerMe:
             "api.routes.customers.get_dynamodb_service"
         ) as mock_get_db:
             mock_db = mock_get_db.return_value
-            mock_db.get_guest_by_cognito_sub.return_value = existing_guest
-            mock_db.update_item.return_value = updated_guest
+            mock_db.get_customer_by_cognito_sub.return_value = existing_customer
+            mock_db.update_item.return_value = updated_customer
 
             response = client.put(
                 "/customers/me",
@@ -540,7 +540,7 @@ class TestUpdateCustomerMe:
             "api.routes.customers.get_dynamodb_service"
         ) as mock_get_db:
             mock_db = mock_get_db.return_value
-            mock_db.get_guest_by_cognito_sub.return_value = None
+            mock_db.get_customer_by_cognito_sub.return_value = None
 
             response = client.put(
                 "/customers/me",
@@ -580,8 +580,8 @@ class TestUpdateCustomerMe:
         app.include_router(router)
         client = TestClient(app)
 
-        existing_guest = {
-            "guest_id": "guest-uuid-12345",
+        existing_customer = {
+            "customer_id": "customer-uuid-12345",
             "email": "test@example.com",
             "cognito_sub": "cognito-sub-abc123",
             "name": "Original Name",
@@ -590,8 +590,8 @@ class TestUpdateCustomerMe:
         }
 
         # Only name updated, phone preserved
-        updated_guest = {
-            **existing_guest,
+        updated_customer = {
+            **existing_customer,
             "name": "Updated Name",
         }
 
@@ -599,8 +599,8 @@ class TestUpdateCustomerMe:
             "api.routes.customers.get_dynamodb_service"
         ) as mock_get_db:
             mock_db = mock_get_db.return_value
-            mock_db.get_guest_by_cognito_sub.return_value = existing_guest
-            mock_db.update_item.return_value = updated_guest
+            mock_db.get_customer_by_cognito_sub.return_value = existing_customer
+            mock_db.update_item.return_value = updated_customer
 
             response = client.put(
                 "/customers/me",

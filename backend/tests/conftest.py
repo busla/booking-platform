@@ -2,7 +2,8 @@
 
 This module provides reusable fixtures for testing:
 - DynamoDB mocking with moto
-- Sample data fixtures (guests, reservations, pricing)
+- Sample data fixtures (customers, reservations, pricing)
+- Note: "customer" refers to the identity entity; "guest" counts (num_guests) refer to physical occupants
 - Agent configuration fixtures
 - AgentCore Identity decorator mocking
 """
@@ -174,13 +175,13 @@ def create_tables(dynamodb_client: Any) -> None:
             "KeySchema": [{"AttributeName": "reservation_id", "KeyType": "HASH"}],
             "AttributeDefinitions": [
                 {"AttributeName": "reservation_id", "AttributeType": "S"},
-                {"AttributeName": "guest_id", "AttributeType": "S"},
+                {"AttributeName": "customer_id", "AttributeType": "S"},
                 {"AttributeName": "check_in_date", "AttributeType": "S"},
             ],
             "GlobalSecondaryIndexes": [
                 {
-                    "IndexName": "guest_id-index",
-                    "KeySchema": [{"AttributeName": "guest_id", "KeyType": "HASH"}],
+                    "IndexName": "customer_id-index",
+                    "KeySchema": [{"AttributeName": "customer_id", "KeyType": "HASH"}],
                     "Projection": {"ProjectionType": "ALL"},
                 },
                 {
@@ -192,10 +193,10 @@ def create_tables(dynamodb_client: Any) -> None:
             "BillingMode": "PAY_PER_REQUEST",
         },
         {
-            "TableName": "test-booking-guests",
-            "KeySchema": [{"AttributeName": "guest_id", "KeyType": "HASH"}],
+            "TableName": "test-booking-customers",
+            "KeySchema": [{"AttributeName": "customer_id", "KeyType": "HASH"}],
             "AttributeDefinitions": [
-                {"AttributeName": "guest_id", "AttributeType": "S"},
+                {"AttributeName": "customer_id", "AttributeType": "S"},
                 {"AttributeName": "email", "AttributeType": "S"},
                 {"AttributeName": "cognito_sub", "AttributeType": "S"},
             ],
@@ -279,10 +280,10 @@ def create_tables(dynamodb_client: Any) -> None:
 
 
 @pytest.fixture
-def sample_guest() -> dict[str, Any]:
-    """Sample guest data for testing."""
+def sample_customer() -> dict[str, Any]:
+    """Sample customer data for testing."""
     return {
-        "guest_id": "guest-123-abc",
+        "customer_id": "customer-123-abc",
         "email": "test@example.com",
         "full_name": "John Doe",
         "phone": "+34612345678",
@@ -299,7 +300,7 @@ def sample_reservation() -> dict[str, Any]:
     """Sample reservation data for testing."""
     return {
         "reservation_id": "res-456-def",
-        "guest_id": "guest-123-abc",
+        "customer_id": "customer-123-abc",
         "check_in_date": "2025-07-15",
         "check_out_date": "2025-07-22",
         "num_guests": 2,

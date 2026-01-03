@@ -1,9 +1,9 @@
 """Unit tests for cancel_reservation tool (T095).
 
-Tests the cancel_reservation functionality that allows guests
+Tests the cancel_reservation functionality that allows customers
 to cancel their bookings with appropriate refund policies.
 
-Note: Tests must mock get_guest_by_cognito_sub as the tool verifies
+Note: Tests must mock get_customer_by_cognito_sub as the tool verifies
 ownership via AgentCore Identity OAuth2 (cognito_sub from JWT).
 """
 
@@ -26,11 +26,11 @@ class TestCancelReservation:
         """Should cancel reservation successfully."""
         from shared.tools.reservations import cancel_reservation
 
-        # Setup mock DB with guest ownership verification
+        # Setup mock DB with customer ownership verification
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",  # Must match guest returned by get_guest_by_cognito_sub
+            "customer_id": "customer-123",  # Must match customer returned by get_customer_by_cognito_sub
             "check_in": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
             "check_out": (datetime.now() + timedelta(days=37)).strftime("%Y-%m-%d"),
             "nights": 7,
@@ -39,9 +39,9 @@ class TestCancelReservation:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        # Mock guest lookup (ownership verification)
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        # Mock customer lookup (ownership verification)
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
             "cognito_sub": "test-cognito-sub-123",
         }
@@ -89,7 +89,7 @@ class TestCancelReservation:
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2025-07-15",
             "check_out": "2025-07-22",
             "nights": 7,
@@ -98,8 +98,8 @@ class TestCancelReservation:
             "status": ReservationStatus.CANCELLED.value,
             "payment_status": PaymentStatus.REFUNDED.value,
         }
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
         }
         mock_get_db.return_value = mock_db
@@ -111,7 +111,7 @@ class TestCancelReservation:
         )
 
         assert result["success"] is False
-        # ToolError.UNAUTHORIZED message is "Guest not authorized for this action"
+        # ToolError.UNAUTHORIZED message is "Customer not authorized for this action"
         assert "not authorized" in result["message"].lower() or "cancelled" in result["message"].lower()
 
     @patch("shared.tools.reservations._get_db")
@@ -124,7 +124,7 @@ class TestCancelReservation:
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2024-07-15",  # Past date
             "check_out": "2024-07-22",
             "nights": 7,
@@ -133,8 +133,8 @@ class TestCancelReservation:
             "status": ReservationStatus.COMPLETED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
         }
         mock_get_db.return_value = mock_db
@@ -162,7 +162,7 @@ class TestCancellationPolicy:
         future_checkin = (datetime.now() + timedelta(days=35)).strftime("%Y-%m-%d")
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": future_checkin,
             "check_out": (datetime.now() + timedelta(days=42)).strftime("%Y-%m-%d"),
             "nights": 7,
@@ -171,8 +171,8 @@ class TestCancellationPolicy:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
         }
         mock_db.transact_write.return_value = True
@@ -200,7 +200,7 @@ class TestCancellationPolicy:
         future_checkin = (datetime.now() + timedelta(days=20)).strftime("%Y-%m-%d")
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": future_checkin,
             "check_out": (datetime.now() + timedelta(days=27)).strftime("%Y-%m-%d"),
             "nights": 7,
@@ -209,8 +209,8 @@ class TestCancellationPolicy:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
         }
         mock_db.transact_write.return_value = True
@@ -238,7 +238,7 @@ class TestCancellationPolicy:
         future_checkin = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": future_checkin,
             "check_out": (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d"),
             "nights": 7,
@@ -247,8 +247,8 @@ class TestCancellationPolicy:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
         }
         mock_db.transact_write.return_value = True
@@ -281,7 +281,7 @@ class TestCancellationAvailabilityRelease:
         future_checkout = (datetime.now() + timedelta(days=37)).strftime("%Y-%m-%d")
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": future_checkin,
             "check_out": future_checkout,
             "nights": 7,
@@ -290,8 +290,8 @@ class TestCancellationAvailabilityRelease:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
         }
         mock_db.transact_write.return_value = True

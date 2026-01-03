@@ -126,7 +126,7 @@ class TestGetWorkloadToken:
             "expiresAt": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
         }
 
-        user_id = "guest-123-abc"
+        user_id = "customer-123-abc"
 
         # When: Getting workload token with user_id
         with patch(

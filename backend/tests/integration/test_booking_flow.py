@@ -1,8 +1,8 @@
 """Integration tests for the complete booking flow (T047).
 
-Tests the end-to-end booking flow that the agent guides guests through:
+Tests the end-to-end booking flow that the agent guides customers through:
 1. Check availability for desired dates
-2. Guest verification (email code)
+2. Customer verification (email code)
 3. Create reservation
 4. Process payment
 
@@ -13,9 +13,9 @@ NOTE: Pricing tests are simplified since the pricing table requires
 a GSI setup that's complex to mock. The reservation tools have
 hardcoded pricing for test simplicity.
 
-Note: Tests must seed a guest with cognito_sub="test-cognito-sub-123" to match
+Note: Tests must seed a customer with cognito_sub="test-cognito-sub-123" to match
 the mock JWT from conftest.py. With @requires_access_token decorator,
-guest identity is derived from the JWT token, not passed as a parameter.
+customer identity is derived from the JWT token, not passed as a parameter.
 """
 
 import os
@@ -139,10 +139,10 @@ def dynamodb_tables(aws_credentials: None) -> Generator[Any, None, None]:
                 "BillingMode": "PAY_PER_REQUEST",
             },
             {
-                "TableName": "test-booking-guests",
-                "KeySchema": [{"AttributeName": "guest_id", "KeyType": "HASH"}],
+                "TableName": "test-booking-customers",
+                "KeySchema": [{"AttributeName": "customer_id", "KeyType": "HASH"}],
                 "AttributeDefinitions": [
-                    {"AttributeName": "guest_id", "AttributeType": "S"},
+                    {"AttributeName": "customer_id", "AttributeType": "S"},
                     {"AttributeName": "email", "AttributeType": "S"},
                     {"AttributeName": "cognito_sub", "AttributeType": "S"},
                 ],
@@ -238,17 +238,17 @@ def seed_availability(dynamodb_tables: Any) -> None:
 
 
 @pytest.fixture
-def seed_guest(dynamodb_tables: Any) -> dict[str, Any]:
-    """Seed a guest with cognito_sub matching the mock JWT from conftest.py.
+def seed_customer(dynamodb_tables: Any) -> dict[str, Any]:
+    """Seed a customer with cognito_sub matching the mock JWT from conftest.py.
 
     This is required for @requires_access_token decorated tools which
-    derive guest identity from the JWT token's cognito_sub claim.
+    derive customer identity from the JWT token's cognito_sub claim.
     """
     resource = boto3.resource("dynamodb", region_name="eu-west-1")
-    table = resource.Table("test-booking-guests")
+    table = resource.Table("test-booking-customers")
 
-    guest = {
-        "guest_id": "integration-test-guest-123",
+    customer = {
+        "customer_id": "integration-test-customer-123",
         "email": "test@example.com",
         "cognito_sub": "test-cognito-sub-123",  # Must match conftest.py _create_mock_jwt()
         "full_name": "Integration Test User",
@@ -256,8 +256,8 @@ def seed_guest(dynamodb_tables: Any) -> dict[str, Any]:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
-    table.put_item(Item=guest)
-    return guest
+    table.put_item(Item=customer)
+    return customer
 
 
 @pytest.fixture
@@ -286,7 +286,7 @@ class TestCompleteBookingFlow:
         self,
         dynamodb_tables: Any,
         seed_availability: None,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Test the complete happy path: availability → reservation → payment."""
@@ -304,8 +304,8 @@ class TestCompleteBookingFlow:
         assert avail_result["status"] == "success"
         assert avail_result["is_available"] is True
 
-        # Step 2: Create reservation (guest identity from JWT token)
-        # Note: guest_id is derived from cognito_sub in JWT, not passed as parameter
+        # Step 2: Create reservation (customer identity from JWT token)
+        # Note: customer_id is derived from cognito_sub in JWT, not passed as parameter
         res_result = await create_reservation(
             check_in=_date_str(0),
             check_out=_date_str(4),
@@ -337,7 +337,7 @@ class TestCompleteBookingFlow:
         self,
         dynamodb_tables: Any,
         seed_availability: None,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that booking unavailable dates fails gracefully."""
@@ -370,7 +370,7 @@ class TestCompleteBookingFlow:
         self,
         dynamodb_tables: Any,
         seed_availability: None,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that dates are marked unavailable after successful reservation."""
@@ -407,7 +407,7 @@ class TestCompleteBookingFlow:
         self,
         dynamodb_tables: Any,
         seed_availability: None,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that partial date overlap is correctly detected."""
@@ -424,7 +424,7 @@ class TestCompleteBookingFlow:
         assert res1["status"] == "success"
 
         # Second booking with overlapping dates (days 17-24)
-        # Same guest can't double-book dates either
+        # Same customer can't double-book dates either
         res2 = await create_reservation(
             check_in=_date_str(17),
             check_out=_date_str(24),
@@ -440,15 +440,15 @@ class TestCompleteBookingFlow:
         assert has_unavailable or (error_code and "DATES_UNAVAILABLE" in error_code)
 
 
-class TestGuestVerificationFlow:
-    """Tests the guest verification process."""
+class TestCustomerVerificationFlow:
+    """Tests the customer verification process."""
 
     def test_verification_code_flow(
         self,
         dynamodb_tables: Any,
     ) -> None:
         """Test initiate → verify code flow."""
-        from shared.tools.guest import initiate_verification, verify_code
+        from shared.tools.customer import initiate_verification, verify_code
 
         email = "test@example.com"
 
@@ -479,14 +479,14 @@ class TestGuestVerificationFlow:
         )
 
         assert verify_result["status"] == "success"
-        assert "guest_id" in verify_result
+        assert "customer_id" in verify_result
 
     def test_invalid_verification_code_fails(
         self,
         dynamodb_tables: Any,
     ) -> None:
         """Test that wrong verification code is rejected."""
-        from shared.tools.guest import initiate_verification, verify_code
+        from shared.tools.customer import initiate_verification, verify_code
 
         email = "test2@example.com"
 
@@ -509,7 +509,7 @@ class TestReservationValidation:
     async def test_checkout_before_checkin_fails(
         self,
         dynamodb_tables: Any,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that checkout date before checkin is rejected."""
@@ -528,7 +528,7 @@ class TestReservationValidation:
     async def test_invalid_date_format_fails(
         self,
         dynamodb_tables: Any,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that invalid date format is rejected."""
@@ -547,10 +547,10 @@ class TestReservationValidation:
     async def test_zero_adults_fails(
         self,
         dynamodb_tables: Any,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
-        """Test that zero adult guests is rejected."""
+        """Test that zero adults is rejected."""
         from shared.tools.reservations import create_reservation
 
         result = await create_reservation(
@@ -566,10 +566,10 @@ class TestReservationValidation:
     async def test_exceeds_max_guests_fails(
         self,
         dynamodb_tables: Any,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
-        """Test that exceeding max guest limit is rejected."""
+        """Test that exceeding max occupancy limit is rejected."""
         from shared.tools.reservations import create_reservation
 
         result = await create_reservation(
@@ -591,7 +591,7 @@ class TestPaymentProcessing:
         self,
         dynamodb_tables: Any,
         seed_availability: None,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that payment updates reservation status to confirmed."""
@@ -652,7 +652,7 @@ class TestConcurrentBookingPrevention:
     simultaneously.
 
     Note: With @requires_access_token, all requests appear as the same
-    authenticated user. These tests verify date conflict prevention works
+    authenticated customer. These tests verify date conflict prevention works
     regardless of who is making the reservation.
     """
 
@@ -660,7 +660,7 @@ class TestConcurrentBookingPrevention:
         self,
         dynamodb_tables: Any,
         seed_availability: None,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that concurrent bookings for same dates results in only one success.
@@ -702,7 +702,7 @@ class TestConcurrentBookingPrevention:
         self,
         dynamodb_tables: Any,
         seed_availability: None,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that concurrent bookings with partial date overlap are handled.
@@ -751,7 +751,7 @@ class TestConcurrentBookingPrevention:
         self,
         dynamodb_tables: Any,
         seed_availability: None,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that sequential booking properly fails for already-booked dates.
@@ -791,7 +791,7 @@ class TestConcurrentBookingPrevention:
         self,
         dynamodb_tables: Any,
         seed_availability: None,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Test that concurrent bookings for different dates both succeed."""

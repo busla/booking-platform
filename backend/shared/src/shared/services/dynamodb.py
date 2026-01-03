@@ -286,50 +286,50 @@ class DynamoDBService:
         return self.query(table, key_condition, index_name=index_name)
 
     # =========================================================================
-    # Guest-specific methods (T035)
+    # Customer-specific methods
     # =========================================================================
 
-    def get_guest_by_email(self, email: str) -> dict[str, Any] | None:
-        """Get a guest by email address using GSI.
+    def get_customer_by_email(self, email: str) -> dict[str, Any] | None:
+        """Get a customer by email address using GSI.
 
         Args:
-            email: Guest email address
+            email: Customer email address
 
         Returns:
-            Guest dict or None if not found
+            Customer dict or None if not found
         """
         results = self.query_by_gsi(
-            table="guests",
+            table="customers",
             index_name="email-index",
             partition_key_name="email",
             partition_key_value=email,
         )
         return results[0] if results else None
 
-    def get_guest_by_cognito_sub(self, cognito_sub: str) -> dict[str, Any] | None:
-        """Get a guest by Cognito sub using GSI.
+    def get_customer_by_cognito_sub(self, cognito_sub: str) -> dict[str, Any] | None:
+        """Get a customer by Cognito sub using GSI.
 
         Args:
             cognito_sub: Cognito user sub (from ID token)
 
         Returns:
-            Guest dict or None if not found
+            Customer dict or None if not found
         """
         results = self.query_by_gsi(
-            table="guests",
+            table="customers",
             index_name="cognito-sub-index",  # Note: hyphen, not underscore (per Terraform)
             partition_key_name="cognito_sub",
             partition_key_value=cognito_sub,
         )
         return results[0] if results else None
 
-    def get_reservations_by_guest_id(
-        self, guest_id: str, limit: int | None = None
+    def get_reservations_by_customer_id(
+        self, customer_id: str, limit: int | None = None
     ) -> list[dict[str, Any]]:
-        """Get all reservations for a guest using GSI.
+        """Get all reservations for a customer using GSI.
 
         Args:
-            guest_id: Guest ID to query reservations for
+            customer_id: Customer ID to query reservations for
             limit: Optional limit on number of results
 
         Returns:
@@ -337,45 +337,45 @@ class DynamoDBService:
         """
         return self.query(
             table="reservations",
-            key_condition=Key("guest_id").eq(guest_id),
-            index_name="guest-checkin-index",
+            key_condition=Key("customer_id").eq(customer_id),
+            index_name="customer-checkin-index",
             limit=limit,
             scan_index_forward=False,  # Most recent first
         )
 
-    def create_guest(self, guest: dict[str, Any]) -> bool:
-        """Create a new guest record.
+    def create_customer(self, customer: dict[str, Any]) -> bool:
+        """Create a new customer record.
 
         Args:
-            guest: Guest data dict (must include guest_id)
+            customer: Customer data dict (must include customer_id)
 
         Returns:
             True if created successfully
         """
         return self.put_item(
-            table="guests",
-            item=guest,
-            condition_expression="attribute_not_exists(guest_id)",
+            table="customers",
+            item=customer,
+            condition_expression="attribute_not_exists(customer_id)",
         )
 
-    def update_guest_cognito_sub(
-        self, guest_id: str, cognito_sub: str
+    def update_customer_cognito_sub(
+        self, customer_id: str, cognito_sub: str
     ) -> dict[str, Any] | None:
-        """Bind a Cognito sub to an existing guest.
+        """Bind a Cognito sub to an existing customer.
 
-        Used when a guest who was created before OAuth2 auth
+        Used when a customer who was created before OAuth2 auth
         logs in for the first time and needs their cognito_sub linked.
 
         Args:
-            guest_id: Guest primary key
+            customer_id: Customer primary key
             cognito_sub: Cognito user sub to bind
 
         Returns:
-            Updated guest attributes or None if failed
+            Updated customer attributes or None if failed
         """
         return self.update_item(
-            table="guests",
-            key={"guest_id": guest_id},
+            table="customers",
+            key={"customer_id": customer_id},
             update_expression="SET cognito_sub = :sub",
             expression_attribute_values={":sub": cognito_sub},
         )

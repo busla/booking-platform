@@ -3,7 +3,7 @@
 #
 # Tables defined per data-model.md specification:
 # - reservations: Booking records with GSIs for guest and status queries
-# - guests: Guest profiles with email lookup
+# - customers: Customer profiles with email lookup
 # - availability: Date-based availability
 # - pricing: Seasonal pricing
 # - payments: Payment records linked to reservations
@@ -77,20 +77,20 @@ module "reservations" {
 }
 
 # -----------------------------------------------------------------------------
-# Guests Table
+# Customers Table
 # -----------------------------------------------------------------------------
 
-module "guests" {
+module "customers" {
   source  = "terraform-aws-modules/dynamodb-table/aws"
   version = "~> 5.0"
 
-  name     = "${module.label.id}-guests"
-  hash_key = "guest_id"
+  name     = "${module.label.id}-customers"
+  hash_key = "customer_id"
 
   billing_mode = "PAY_PER_REQUEST"
 
   attributes = [
-    { name = "guest_id", type = "S" },
+    { name = "customer_id", type = "S" },
     { name = "email", type = "S" },
     { name = "cognito_sub", type = "S" }
   ]

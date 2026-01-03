@@ -26,10 +26,10 @@ class TestSharedPackageImports:
             PaymentStatus,
             ReservationStatus,
             TransactionStatus,
-            # Guest
-            Guest,
-            GuestCreate,
-            GuestUpdate,
+            # Customer
+            Customer,
+            CustomerCreate,
+            CustomerUpdate,
             # Reservation
             Reservation,
             ReservationCreate,
@@ -73,7 +73,7 @@ class TestSharedPackageImports:
         )
 
         # Verify a few key types are actually classes/enums
-        assert hasattr(Guest, "model_fields")  # Pydantic model
+        assert hasattr(Customer, "model_fields")  # Pydantic model
         assert hasattr(ReservationStatus, "PENDING")  # Enum
         assert hasattr(Property, "model_fields")  # Pydantic model
 
@@ -137,11 +137,11 @@ class TestCrossPackageDependencies:
 
     def test_api_can_use_shared_models(self):
         """API package should be able to use shared models."""
-        from shared.models import Guest
+        from shared.models import Customer
         from api.main import app
 
         # This validates that API can import and use shared types
-        assert Guest is not None
+        assert Customer is not None
         assert app is not None
 
     def test_agent_can_use_shared_tools(self):

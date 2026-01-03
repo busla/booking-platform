@@ -1,6 +1,6 @@
-"""Guest verification tools for email-based authentication.
+"""Customer verification tools for email-based authentication.
 
-These tools handle guest identity verification using one-time codes
+These tools handle customer identity verification using one-time codes
 sent to email addresses. This implements passwordless authentication
 for the booking flow.
 """
@@ -30,22 +30,22 @@ def _generate_verification_code() -> str:
     return "".join(random.choices(string.digits, k=6))
 
 
-def _generate_guest_id() -> str:
-    """Generate a unique guest ID."""
+def _generate_customer_id() -> str:
+    """Generate a unique customer ID."""
     return str(uuid.uuid4())
 
 
-def _find_guest_by_email(db: DynamoDBService, email: str) -> dict[str, Any] | None:
-    """Find a guest by email using the GSI.
+def _find_customer_by_email(db: DynamoDBService, email: str) -> dict[str, Any] | None:
+    """Find a customer by email using the GSI.
 
-    The guests table uses guest_id as the partition key with an email-index GSI.
-    We must query the GSI to find guests by email.
+    The customers table uses customer_id as the partition key with an email-index GSI.
+    We must query the GSI to find customers by email.
     """
     from boto3.dynamodb.conditions import Key
 
     try:
         results = db.query(
-            "guests",
+            "customers",
             Key("email").eq(email),
             index_name="email-index",
         )
@@ -56,9 +56,9 @@ def _find_guest_by_email(db: DynamoDBService, email: str) -> dict[str, Any] | No
 
 @tool
 def initiate_verification(email: str) -> dict[str, Any]:
-    """Send a verification code to the guest's email address.
+    """Send a verification code to the customer's email address.
 
-    Use this tool when you need to verify a guest's identity before
+    Use this tool when you need to verify a customer's identity before
     creating a reservation. This is required before any booking can
     be confirmed.
 
@@ -69,7 +69,7 @@ def initiate_verification(email: str) -> dict[str, Any]:
     with Amazon SES or Cognito passwordless auth.
 
     Args:
-        email: Guest's email address (e.g., 'guest@example.com')
+        email: Customer's email address (e.g., 'customer@example.com')
 
     Returns:
         Dictionary with verification status and next steps
@@ -108,17 +108,17 @@ def initiate_verification(email: str) -> dict[str, Any]:
     # For development, we log the code (would be removed in production)
     print(f"[MOCK EMAIL] Verification code for {email}: {code}")
 
-    # Check if returning guest (query GSI)
-    existing_guest = _find_guest_by_email(db, email)
-    is_returning = existing_guest is not None
+    # Check if returning customer (query GSI)
+    existing_customer = _find_customer_by_email(db, email)
+    is_returning = existing_customer is not None
 
     return {
         "status": "success",
         "email": email,
-        "is_returning_guest": is_returning,
+        "is_returning_customer": is_returning,
         "expires_in_minutes": 10,
         "message": f"A verification code has been sent to {email}. The code will expire in 10 minutes.",
-        "next_step": "Ask the guest to provide the verification code they received.",
+        "next_step": "Ask the customer to provide the verification code they received.",
         # Include code in dev mode for testing (remove in production)
         "_dev_code": code,
     }
@@ -126,18 +126,18 @@ def initiate_verification(email: str) -> dict[str, Any]:
 
 @tool
 def verify_code(email: str, code: str) -> dict[str, Any]:
-    """Verify a guest's email using the code they received.
+    """Verify a customer's email using the code they received.
 
-    Use this tool when a guest provides their verification code.
-    Upon successful verification, a guest record is created or
-    updated, and a guest_id is returned for use in reservations.
+    Use this tool when a customer provides their verification code.
+    Upon successful verification, a customer record is created or
+    updated, and a customer_id is returned for use in reservations.
 
     Args:
-        email: Guest's email address (must match the one used in initiate_verification)
+        email: Customer's email address (must match the one used in initiate_verification)
         code: The 6-digit verification code received by email
 
     Returns:
-        Dictionary with verification result and guest_id if successful
+        Dictionary with verification result and customer_id if successful
     """
     logger.info("verify_code called", extra={"email": email})
     email = email.strip().lower()
@@ -214,33 +214,33 @@ def verify_code(email: str, code: str) -> dict[str, Any]:
 
     now = datetime.now(timezone.utc)
 
-    # Get or create guest record (query GSI)
-    existing_guest = _find_guest_by_email(db, email)
+    # Get or create customer record (query GSI)
+    existing_customer = _find_customer_by_email(db, email)
 
-    if existing_guest:
-        # Update existing guest (PK is guest_id)
-        guest_id = existing_guest["guest_id"]
+    if existing_customer:
+        # Update existing customer (PK is customer_id)
+        customer_id = existing_customer["customer_id"]
         db.update_item(
-            "guests",
-            {"guest_id": guest_id},
+            "customers",
+            {"customer_id": customer_id},
             "SET email_verified = :verified, updated_at = :now",
             {":verified": True, ":now": now.isoformat()},
         )
 
         return {
             "status": "success",
-            "guest_id": guest_id,
+            "customer_id": customer_id,
             "email": email,
-            "is_returning_guest": True,
-            "guest_name": existing_guest.get("name"),
-            "total_previous_bookings": existing_guest.get("total_bookings", 0),
-            "message": f"Welcome back! Your email has been verified. You have {existing_guest.get('total_bookings', 0)} previous bookings with us.",
+            "is_returning_customer": True,
+            "customer_name": existing_customer.get("name"),
+            "total_previous_bookings": existing_customer.get("total_bookings", 0),
+            "message": f"Welcome back! Your email has been verified. You have {existing_customer.get('total_bookings', 0)} previous bookings with us.",
         }
     else:
-        # Create new guest
-        guest_id = _generate_guest_id()
-        guest_record = {
-            "guest_id": guest_id,
+        # Create new customer
+        customer_id = _generate_customer_id()
+        customer_record = {
+            "customer_id": customer_id,
             "email": email,
             "email_verified": True,
             "first_verified_at": now.isoformat(),
@@ -250,33 +250,33 @@ def verify_code(email: str, code: str) -> dict[str, Any]:
             "updated_at": now.isoformat(),
         }
 
-        db.put_item("guests", guest_record)
+        db.put_item("customers", customer_record)
 
         return {
             "status": "success",
-            "guest_id": guest_id,
+            "customer_id": customer_id,
             "email": email,
-            "is_returning_guest": False,
+            "is_returning_customer": False,
             "message": "Your email has been verified! You can now proceed with your booking.",
             "next_step": "Would you like to provide your name and phone number for the reservation?",
         }
 
 
 @tool
-def get_guest_info(email: str) -> dict[str, Any]:
-    """Get information about an existing guest by email.
+def get_customer_info(email: str) -> dict[str, Any]:
+    """Get information about an existing customer by email.
 
-    Use this tool to check if a guest has booked before and retrieve
+    Use this tool to check if a customer has booked before and retrieve
     their stored preferences. This enables personalized service for
-    returning guests.
+    returning customers.
 
     Args:
-        email: Guest's email address
+        email: Customer's email address
 
     Returns:
-        Dictionary with guest info or indication that guest is new
+        Dictionary with customer info or indication that customer is new
     """
-    logger.info("get_guest_info called", extra={"email": email})
+    logger.info("get_customer_info called", extra={"email": email})
     email = email.strip().lower()
 
     if not email or "@" not in email:
@@ -288,61 +288,61 @@ def get_guest_info(email: str) -> dict[str, Any]:
 
     db = _get_db()
 
-    # Query GSI to find guest by email
-    guest = _find_guest_by_email(db, email)
+    # Query GSI to find customer by email
+    customer = _find_customer_by_email(db, email)
 
-    if not guest:
+    if not customer:
         return {
             "status": "not_found",
             "email": email,
-            "is_returning_guest": False,
-            "message": "This appears to be a new guest. Email verification will be required for booking.",
+            "is_returning_customer": False,
+            "message": "This appears to be a new customer. Email verification will be required for booking.",
         }
 
-    # Returning guest found
+    # Returning customer found
     return {
         "status": "success",
-        "guest_id": guest["guest_id"],
+        "customer_id": customer["customer_id"],
         "email": email,
-        "name": guest.get("name"),
-        "phone": guest.get("phone"),
-        "preferred_language": guest.get("preferred_language", "en"),
-        "is_returning_guest": True,
-        "email_verified": guest.get("email_verified", False),
-        "total_bookings": guest.get("total_bookings", 0),
-        "first_stay": guest.get("first_verified_at"),
-        "message": f"Returning guest found! {guest.get('name') or 'Guest'} has made {guest.get('total_bookings', 0)} previous bookings.",
+        "name": customer.get("name"),
+        "phone": customer.get("phone"),
+        "preferred_language": customer.get("preferred_language", "en"),
+        "is_returning_customer": True,
+        "email_verified": customer.get("email_verified", False),
+        "total_bookings": customer.get("total_bookings", 0),
+        "first_stay": customer.get("first_verified_at"),
+        "message": f"Returning customer found! {customer.get('name') or 'Customer'} has made {customer.get('total_bookings', 0)} previous bookings.",
     }
 
 
 @tool
-def update_guest_details(
-    guest_id: str,
+def update_customer_details(
+    customer_id: str,
     name: str | None = None,
     phone: str | None = None,
     preferred_language: str | None = None,
 ) -> dict[str, Any]:
-    """Update a guest's profile information.
+    """Update a customer's profile information.
 
-    Use this tool to save additional guest details like name and phone
+    Use this tool to save additional customer details like name and phone
     after they've been verified. This information is used for the
     reservation and future bookings.
 
     Args:
-        guest_id: The verified guest's ID
-        name: Full name of the guest (optional)
+        customer_id: The verified customer's ID
+        name: Full name of the customer (optional)
         phone: Phone number (optional)
         preferred_language: Language preference - 'en' or 'es' (optional)
 
     Returns:
         Dictionary with update status
     """
-    logger.info("update_guest_details called", extra={"guest_id": guest_id})
-    if not guest_id:
+    logger.info("update_customer_details called", extra={"customer_id": customer_id})
+    if not customer_id:
         return {
             "status": "error",
-            "code": "MISSING_GUEST_ID",
-            "message": "Guest ID is required to update details.",
+            "code": "MISSING_CUSTOMER_ID",
+            "message": "Customer ID is required to update details.",
         }
 
     # Validate language if provided
@@ -355,12 +355,12 @@ def update_guest_details(
 
     db = _get_db()
 
-    # Find guest by ID (guest_id is the partition key)
-    guest = db.get_item("guests", {"guest_id": guest_id})
-    if not guest:
+    # Find customer by ID (customer_id is the partition key)
+    customer = db.get_item("customers", {"customer_id": customer_id})
+    if not customer:
         error = ToolError.from_code(
             ErrorCode.VERIFICATION_REQUIRED,
-            details={"guest_id": guest_id},
+            details={"customer_id": customer_id},
         )
         return error.model_dump()
 
@@ -393,17 +393,17 @@ def update_guest_details(
 
     update_expression = "SET " + ", ".join(update_parts)
 
-    # Update guest record (PK is guest_id)
+    # Update customer record (PK is customer_id)
     db.update_item(
-        "guests",
-        {"guest_id": guest_id},
+        "customers",
+        {"customer_id": customer_id},
         update_expression,
         expression_values,
     )
 
     return {
         "status": "success",
-        "guest_id": guest_id,
+        "customer_id": customer_id,
         "updated_fields": [k.replace(":", "") for k in expression_values if k != ":now"],
-        "message": "Guest details updated successfully.",
+        "message": "Customer details updated successfully.",
     }

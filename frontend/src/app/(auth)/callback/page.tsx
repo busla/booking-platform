@@ -48,8 +48,8 @@ interface CallbackState {
  */
 function CallbackLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-pulse text-gray-500">Loading...</div>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="animate-pulse text-muted-foreground">Loading...</div>
     </div>
   )
 }
@@ -151,7 +151,7 @@ function CallbackContent() {
 
   return (
     <AmplifyProvider>
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
         <div className="max-w-md w-full space-y-8 text-center">
           {/* Loading State */}
           {(state.status === 'loading' || state.status === 'binding') && (

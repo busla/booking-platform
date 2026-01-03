@@ -5,13 +5,13 @@ This script populates DynamoDB tables with realistic test data for local
 development and testing. Per FR-003 and data-model.md requirements:
 - Seasonal pricing for 2+ years with different rates and minimum stays
 - 2 years of individual availability date records (status='available' by default)
-- Sample guest records (optional)
+- Sample customer records (optional)
 
 Usage:
     python scripts/seed_data.py --env dev
     python scripts/seed_data.py --env dev --pricing-only
     python scripts/seed_data.py --env dev --clear-first
-    python scripts/seed_data.py --env dev --skip-guests
+    python scripts/seed_data.py --env dev --skip-customers
 
 Or via Taskfile:
     task seed:dev
@@ -276,11 +276,11 @@ def create_availability(env: str, years: int = 2) -> int:
     return count
 
 
-def create_sample_guests(env: str) -> list[dict]:
-    """Create sample guest records for testing.
+def create_sample_customers(env: str) -> list[dict]:
+    """Create sample customer records for testing.
 
-    Schema matches guest.py tool requirements:
-    - guest_id (PK)
+    Schema matches customer.py tool requirements:
+    - customer_id (PK)
     - email (with email-index GSI)
     - email_verified, name, phone, preferred_language
     - first_verified_at, total_bookings, created_at, updated_at
@@ -290,9 +290,9 @@ def create_sample_guests(env: str) -> list[dict]:
 
     now = datetime.now(timezone.utc).isoformat()
 
-    guests = [
+    customers = [
         {
-            "guest_id": str(uuid.uuid4()),
+            "customer_id": str(uuid.uuid4()),
             "email": "john.smith@example.com",
             "name": "John Smith",
             "phone": "+1-555-0101",
@@ -304,7 +304,7 @@ def create_sample_guests(env: str) -> list[dict]:
             "updated_at": now,
         },
         {
-            "guest_id": str(uuid.uuid4()),
+            "customer_id": str(uuid.uuid4()),
             "email": "maria.garcia@example.com",
             "name": "Maria Garcia",
             "phone": "+34-600-123456",
@@ -316,7 +316,7 @@ def create_sample_guests(env: str) -> list[dict]:
             "updated_at": now,
         },
         {
-            "guest_id": str(uuid.uuid4()),
+            "customer_id": str(uuid.uuid4()),
             "email": "test.user@example.com",
             "name": "Test User",
             "phone": "+44-7700-900123",
@@ -329,16 +329,16 @@ def create_sample_guests(env: str) -> list[dict]:
     ]
 
     dynamodb = get_dynamodb_resource()
-    table = dynamodb.Table(get_table_name(env, "data-guests"))
+    table = dynamodb.Table(get_table_name(env, "data-customers"))
 
-    print(f"Seeding guests table: {table.name}")
+    print(f"Seeding customers table: {table.name}")
 
-    for guest in guests:
-        table.put_item(Item=guest)
-        status = "✓" if guest["email_verified"] else "○"
-        print(f"  {status} {guest['name']} ({guest['email']})")
+    for customer in customers:
+        table.put_item(Item=customer)
+        status = "✓" if customer["email_verified"] else "○"
+        print(f"  {status} {customer['name']} ({customer['email']})")
 
-    return guests
+    return customers
 
 
 def clear_table(env: str, table_name: str) -> int:
@@ -401,9 +401,9 @@ def main() -> int:
         help="Clear existing data before seeding",
     )
     parser.add_argument(
-        "--skip-guests",
+        "--skip-customers",
         action="store_true",
-        help="Skip seeding guest data",
+        help="Skip seeding customer data",
     )
 
     args = parser.parse_args()
@@ -426,7 +426,7 @@ def main() -> int:
         tables = (
             ["data-pricing"]
             if args.pricing_only
-            else ["data-pricing", "data-availability", "data-guests"]
+            else ["data-pricing", "data-availability", "data-customers"]
         )
         for table in tables:
             try:
@@ -455,13 +455,13 @@ def main() -> int:
         print(f"  ❌ Failed to seed availability: {e}")
         # Non-fatal, continue
 
-    # Seed guests (optional)
-    if not args.skip_guests:
+    # Seed customers (optional)
+    if not args.skip_customers:
         print()
         try:
-            create_sample_guests(args.env)
+            create_sample_customers(args.env)
         except Exception as e:
-            print(f"  ❌ Failed to seed guests: {e}")
+            print(f"  ❌ Failed to seed customers: {e}")
             # Non-fatal, continue
 
     print("\n✅ Seed completed successfully!")

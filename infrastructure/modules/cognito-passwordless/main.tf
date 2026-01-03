@@ -73,7 +73,7 @@ resource "aws_cognito_user_pool" "main" {
     temporary_password_validity_days = 7
   }
 
-  # Schema - email is standard, add custom attributes as needed
+  # Schema - standard attributes for customer profile
   schema {
     name                = "email"
     attribute_data_type = "String"
@@ -81,6 +81,30 @@ resource "aws_cognito_user_pool" "main" {
     mutable             = true
     string_attribute_constraints {
       min_length = 1
+      max_length = 256
+    }
+  }
+
+  # Phone number for customer contact and future SMS login support (FR-015)
+  schema {
+    name                = "phone_number"
+    attribute_data_type = "String"
+    required            = false
+    mutable             = true
+    string_attribute_constraints {
+      min_length = 0
+      max_length = 20
+    }
+  }
+
+  # Customer name for session attributes and UI rendering (FR-015)
+  schema {
+    name                = "name"
+    attribute_data_type = "String"
+    required            = false
+    mutable             = true
+    string_attribute_constraints {
+      min_length = 0
       max_length = 256
     }
   }

@@ -1,7 +1,7 @@
 """Unit tests for property details tool (T085).
 
 Tests the get_property_details functionality that provides
-apartment information to guests.
+apartment information to customers.
 """
 
 import pytest
@@ -258,8 +258,8 @@ class TestGetPropertyDetails:
 class TestPropertyScenarios:
     """Scenario-based tests for property details use cases."""
 
-    def test_guest_asks_about_amenities(self, sample_property_data: dict) -> None:
-        """Guest asking 'What amenities do you have?' should get amenities list."""
+    def test_customer_asks_about_amenities(self, sample_property_data: dict) -> None:
+        """Customer asking 'What amenities do you have?' should get amenities list."""
         load_property_data_from_dict(sample_property_data)
 
         result = get_property_details()
@@ -267,24 +267,24 @@ class TestPropertyScenarios:
         assert result["status"] == "success"
         assert len(result["property"]["amenities"]) > 0
 
-    def test_guest_asks_about_capacity(self, sample_property_data: dict) -> None:
-        """Guest asking 'How many people can stay?' should get max_guests."""
+    def test_customer_asks_about_capacity(self, sample_property_data: dict) -> None:
+        """Customer asking 'How many people can stay?' should get max_guests."""
         load_property_data_from_dict(sample_property_data)
 
         result = get_property_details()
 
         assert result["property"]["max_guests"] == 4
 
-    def test_guest_asks_about_check_in(self, sample_property_data: dict) -> None:
-        """Guest asking 'What time is check-in?' should get check_in_time."""
+    def test_customer_asks_about_check_in(self, sample_property_data: dict) -> None:
+        """Customer asking 'What time is check-in?' should get check_in_time."""
         load_property_data_from_dict(sample_property_data)
 
         result = get_property_details()
 
         assert result["property"]["check_in_time"] == "15:00"
 
-    def test_guest_asks_about_location(self, sample_property_data: dict) -> None:
-        """Guest asking 'Where is it located?' should get address."""
+    def test_customer_asks_about_location(self, sample_property_data: dict) -> None:
+        """Customer asking 'Where is it located?' should get address."""
         load_property_data_from_dict(sample_property_data)
 
         result = get_property_details()

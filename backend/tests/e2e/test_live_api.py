@@ -332,17 +332,17 @@ class TestProtectedEndpoints:
     unauthenticated requests.
     """
 
-    def test_get_guest_requires_auth(self, client: httpx.Client) -> None:
-        """Guest endpoint should require authentication."""
-        # Note: actual route is /guests/by-email/{email}
+    def test_get_customer_requires_auth(self, client: httpx.Client) -> None:
+        """Customer endpoint should require authentication."""
+        # Note: actual route is /guests/by-email/{email} (legacy)
         response = client.get("/guests/by-email/test@example.com")
         # Should return 401 Unauthorized or 403 Forbidden
         assert response.status_code in [401, 403]
         data = response.json()
         assert "detail" in data or "message" in data
 
-    def test_update_guest_requires_auth(self, client: httpx.Client) -> None:
-        """Guest update should require authentication."""
+    def test_update_customer_requires_auth(self, client: httpx.Client) -> None:
+        """Customer update should require authentication."""
         response = client.patch(
             "/guests/GUEST-123",
             json={"name": "Test User"},

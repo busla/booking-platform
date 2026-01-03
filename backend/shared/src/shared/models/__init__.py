@@ -13,7 +13,7 @@ from .enums import (
     ReservationStatus,
     TransactionStatus,
 )
-from .guest import Guest, GuestCreate, GuestUpdate
+from .customer import Customer, CustomerCreate, CustomerUpdate
 from .payment import Payment, PaymentCreate, PaymentResult
 from .pricing import PriceCalculation, Pricing, PricingCreate
 from .reservation import Reservation, ReservationCreate, ReservationSummary
@@ -56,10 +56,10 @@ __all__ = [
     "PaymentStatus",
     "ReservationStatus",
     "TransactionStatus",
-    # Guest
-    "Guest",
-    "GuestCreate",
-    "GuestUpdate",
+    # Customer
+    "Customer",
+    "CustomerCreate",
+    "CustomerUpdate",
     # Reservation
     "Reservation",
     "ReservationCreate",

@@ -5,8 +5,8 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from shared.models import (
-    Guest,
-    GuestCreate,
+    Customer,
+    CustomerCreate,
     PaymentStatus,
     Reservation,
     ReservationCreate,
@@ -21,10 +21,10 @@ if TYPE_CHECKING:
 
 
 class BookingService:
-    """Service for managing reservations and guests."""
+    """Service for managing reservations and customers."""
 
     RESERVATIONS_TABLE = "reservations"
-    GUESTS_TABLE = "guests"
+    CUSTOMERS_TABLE = "customers"
 
     def __init__(
         self,
@@ -43,35 +43,35 @@ class BookingService:
         self.availability = availability
         self.pricing = pricing
 
-    # Guest operations
+    # Customer operations
 
-    def get_guest(self, guest_id: str) -> Guest | None:
-        """Get guest by ID."""
-        item = self.db.get_item(self.GUESTS_TABLE, {"guest_id": guest_id})
-        return self._item_to_guest(item) if item else None
+    def get_customer(self, customer_id: str) -> Customer | None:
+        """Get customer by ID."""
+        item = self.db.get_item(self.CUSTOMERS_TABLE, {"customer_id": customer_id})
+        return self._item_to_customer(item) if item else None
 
-    def get_guest_by_email(self, email: str) -> Guest | None:
-        """Get guest by email address."""
+    def get_customer_by_email(self, email: str) -> Customer | None:
+        """Get customer by email address."""
         items = self.db.query_by_gsi(
-            self.GUESTS_TABLE,
+            self.CUSTOMERS_TABLE,
             "email-index",
             "email",
             email.lower(),
         )
-        return self._item_to_guest(items[0]) if items else None
+        return self._item_to_customer(items[0]) if items else None
 
-    def create_guest(self, data: GuestCreate) -> Guest:
-        """Create a new guest.
+    def create_customer(self, data: CustomerCreate) -> Customer:
+        """Create a new customer.
 
         Args:
-            data: Guest creation data
+            data: Customer creation data
 
         Returns:
-            Created Guest object
+            Created Customer object
         """
         now = dt.datetime.now(dt.UTC)
-        guest = Guest(
-            guest_id=str(uuid.uuid4()),
+        customer = Customer(
+            customer_id=str(uuid.uuid4()),
             email=data.email.lower(),
             name=data.name,
             phone=data.phone,
@@ -82,45 +82,45 @@ class BookingService:
             updated_at=now,
         )
 
-        self.db.put_item(self.GUESTS_TABLE, self._guest_to_item(guest))
-        return guest
+        self.db.put_item(self.CUSTOMERS_TABLE, self._customer_to_item(customer))
+        return customer
 
-    def get_or_create_guest(self, email: str, name: str | None = None) -> Guest:
-        """Get existing guest or create new one.
+    def get_or_create_customer(self, email: str, name: str | None = None) -> Customer:
+        """Get existing customer or create new one.
 
         Args:
-            email: Guest email
-            name: Optional name for new guest
+            email: Customer email
+            name: Optional name for new customer
 
         Returns:
-            Guest object
+            Customer object
         """
-        existing = self.get_guest_by_email(email)
+        existing = self.get_customer_by_email(email)
         if existing:
             return existing
 
-        return self.create_guest(GuestCreate(email=email, name=name))
+        return self.create_customer(CustomerCreate(email=email, name=name))
 
-    def verify_guest_email(self, guest_id: str) -> bool:
-        """Mark guest email as verified.
+    def verify_customer_email(self, customer_id: str) -> bool:
+        """Mark customer email as verified.
 
         Args:
-            guest_id: Guest ID to verify
+            customer_id: Customer ID to verify
 
         Returns:
             True if updated
         """
         now = dt.datetime.now(dt.UTC)
         result = self.db.update_item(
-            self.GUESTS_TABLE,
-            {"guest_id": guest_id},
+            self.CUSTOMERS_TABLE,
+            {"customer_id": customer_id},
             "SET email_verified = :v, first_verified_at = :t, updated_at = :u",
             {
                 ":v": True,
                 ":t": now.isoformat(),
                 ":u": now.isoformat(),
             },
-            condition_expression="attribute_exists(guest_id)",
+            condition_expression="attribute_exists(customer_id)",
         )
         return result is not None
 
@@ -134,15 +134,15 @@ class BookingService:
         )
         return self._item_to_reservation(item) if item else None
 
-    def get_guest_reservations(
+    def get_customer_reservations(
         self,
-        guest_id: str,
+        customer_id: str,
         upcoming_only: bool = False,
     ) -> list[ReservationSummary]:
-        """Get all reservations for a guest.
+        """Get all reservations for a customer.
 
         Args:
-            guest_id: Guest ID
+            customer_id: Customer ID
             upcoming_only: Only return future reservations
 
         Returns:
@@ -150,9 +150,9 @@ class BookingService:
         """
         items = self.db.query_by_gsi(
             self.RESERVATIONS_TABLE,
-            "guest-checkin-index",
-            "guest_id",
-            guest_id,
+            "customer-checkin-index",
+            "customer_id",
+            customer_id,
         )
 
         today = dt.date.today().isoformat()
@@ -211,7 +211,7 @@ class BookingService:
         now = dt.datetime.now(dt.UTC)
         reservation = Reservation(
             reservation_id=reservation_id,
-            guest_id=data.guest_id,
+            customer_id=data.customer_id,
             check_in=data.check_in,
             check_out=data.check_out,
             num_adults=data.num_adults,
@@ -333,10 +333,10 @@ class BookingService:
 
     # Conversion helpers
 
-    def _item_to_guest(self, item: dict[str, Any]) -> Guest:
-        """Convert DynamoDB item to Guest model."""
-        return Guest(
-            guest_id=item["guest_id"],
+    def _item_to_customer(self, item: dict[str, Any]) -> Customer:
+        """Convert DynamoDB item to Customer model."""
+        return Customer(
+            customer_id=item["customer_id"],
             email=item["email"],
             name=item.get("name"),
             phone=item.get("phone"),
@@ -353,32 +353,32 @@ class BookingService:
             updated_at=dt.datetime.fromisoformat(item["updated_at"]),
         )
 
-    def _guest_to_item(self, guest: Guest) -> dict[str, Any]:
-        """Convert Guest model to DynamoDB item."""
+    def _customer_to_item(self, customer: Customer) -> dict[str, Any]:
+        """Convert Customer model to DynamoDB item."""
         item = {
-            "guest_id": guest.guest_id,
-            "email": guest.email,
-            "preferred_language": guest.preferred_language,
-            "email_verified": guest.email_verified,
-            "total_bookings": guest.total_bookings,
-            "created_at": guest.created_at.isoformat(),
-            "updated_at": guest.updated_at.isoformat(),
+            "customer_id": customer.customer_id,
+            "email": customer.email,
+            "preferred_language": customer.preferred_language,
+            "email_verified": customer.email_verified,
+            "total_bookings": customer.total_bookings,
+            "created_at": customer.created_at.isoformat(),
+            "updated_at": customer.updated_at.isoformat(),
         }
-        if guest.name:
-            item["name"] = guest.name
-        if guest.phone:
-            item["phone"] = guest.phone
-        if guest.first_verified_at:
-            item["first_verified_at"] = guest.first_verified_at.isoformat()
-        if guest.notes:
-            item["notes"] = guest.notes
+        if customer.name:
+            item["name"] = customer.name
+        if customer.phone:
+            item["phone"] = customer.phone
+        if customer.first_verified_at:
+            item["first_verified_at"] = customer.first_verified_at.isoformat()
+        if customer.notes:
+            item["notes"] = customer.notes
         return item
 
     def _item_to_reservation(self, item: dict[str, Any]) -> Reservation:
         """Convert DynamoDB item to Reservation model."""
         return Reservation(
             reservation_id=item["reservation_id"],
-            guest_id=item["guest_id"],
+            customer_id=item["customer_id"],
             check_in=dt.date.fromisoformat(item["check_in"]),
             check_out=dt.date.fromisoformat(item["check_out"]),
             num_adults=int(item["num_adults"]),
@@ -407,7 +407,7 @@ class BookingService:
         """Convert Reservation model to DynamoDB item."""
         item = {
             "reservation_id": res.reservation_id,
-            "guest_id": res.guest_id,
+            "customer_id": res.customer_id,
             "check_in": res.check_in.isoformat(),
             "check_out": res.check_out.isoformat(),
             "num_adults": res.num_adults,
