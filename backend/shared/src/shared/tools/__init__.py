@@ -6,7 +6,7 @@ Tools are organized by category:
 - Pricing: get_pricing, calculate_total, get_seasonal_rates, check_minimum_stay, get_minimum_stay_info
 - Reservations: create_reservation, get_reservation, get_my_reservations, modify_reservation, cancel_reservation
 - Payments: process_payment, get_payment_status, retry_payment
-- Guest: get_guest_info, update_guest_details
+- Customer: get_customer_info, update_customer_details
 - Area Info: get_area_info, get_recommendations
 - Property: get_property_details, get_photos
 
@@ -25,9 +25,11 @@ logger.info("[TOOLS] Loading tools module v3...")
 from shared.tools.area_info import get_area_info, get_recommendations
 from shared.tools.property import get_photos, get_property_details
 from shared.tools.availability import check_availability, get_calendar
-from shared.tools.guest import (
-    get_guest_info,
-    update_guest_details,
+from shared.tools.customer import (
+    get_customer_info,
+    initiate_verification,
+    update_customer_details,
+    verify_code,
 )
 from shared.tools.payments import get_payment_status, process_payment, retry_payment
 from shared.tools.pricing import (
@@ -67,9 +69,12 @@ ALL_TOOLS = [
     process_payment,
     get_payment_status,
     retry_payment,
-    # Guest profile tools
-    get_guest_info,
-    update_guest_details,
+    # Customer profile tools
+    get_customer_info,
+    update_customer_details,
+    # Verification tools
+    initiate_verification,
+    verify_code,
     # Area info tools
     get_area_info,
     get_recommendations,
@@ -99,8 +104,10 @@ __all__ = [
     "process_payment",
     "get_payment_status",
     "retry_payment",
-    "get_guest_info",
-    "update_guest_details",
+    "get_customer_info",
+    "update_customer_details",
+    "initiate_verification",
+    "verify_code",
     "get_area_info",
     "get_recommendations",
     "get_property_details",

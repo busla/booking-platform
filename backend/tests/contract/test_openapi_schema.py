@@ -213,9 +213,6 @@ class TestRouteSecurityClassification:
             # Area (public info)
             ("get", "/area"),
             ("get", "/area/recommendations"),
-            # Guest verification (public to initiate)
-            ("post", "/guests/verify"),
-            ("post", "/guests/verify/confirm"),
             # Reservation lookup by ID (public for status check)
             ("get", "/reservations/{reservation_id}"),
             # Payment status lookup (public for status check)
@@ -237,9 +234,6 @@ class TestRouteSecurityClassification:
         # Routes that require JWT authentication
         # Note: Routes are at root level; REST API stage 'api' provides /api prefix
         protected_routes = [
-            # Guest profile (owner only)
-            ("get", "/guests/by-email/{email}"),
-            ("patch", "/guests/{guest_id}"),
             # Reservations (authenticated operations)
             ("get", "/reservations"),  # List user's own reservations
             ("post", "/reservations"),
@@ -342,13 +336,9 @@ class TestAllEndpointsExist:
             ("get", "/payments/{reservation_id}"),
             ("post", "/payments/{reservation_id}/retry"),
         ],
-        # US5: Guests
-        "guests": [
-            ("post", "/guests/verify"),
-            ("post", "/guests/verify/confirm"),
-            ("get", "/guests/by-email/{email}"),
-            ("patch", "/guests/{guest_id}"),
-        ],
+        # Note: US5 verification endpoints (/guests/verify, etc.) were spec'd in
+        # 007-tools-api-endpoints but never implemented. They're not required for MVP
+        # since authentication is handled via Cognito EMAIL_OTP flow directly.
         # US6: Property
         "property": [
             ("get", "/property"),
@@ -402,7 +392,7 @@ class TestAllEndpointsExist:
 
     @pytest.mark.parametrize(
         "domain",
-        ["health", "availability", "pricing", "reservations", "payments", "guests", "property", "area", "customers"],
+        ["health", "availability", "pricing", "reservations", "payments", "property", "area", "customers"],
     )
     def test_domain_endpoints_complete(
         self, generated_openapi: dict, domain: str

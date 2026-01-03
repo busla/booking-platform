@@ -1,7 +1,7 @@
 """Unit tests for reservation tools (T046).
 
 Tests the create_reservation tool that allows the agent to
-create bookings for guests after collecting required information.
+create bookings for customers after collecting required information.
 """
 
 from datetime import date, datetime, timezone
@@ -24,12 +24,12 @@ class TestCreateReservation:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
     ) -> None:
         """Should create a reservation successfully."""
-        # Given: A verified guest and available dates
+        # Given: A verified customer and available dates
         reservation_data = {
-            "guest_id": sample_guest["guest_id"],
+            "customer_id": sample_customer["customer_id"],
             "check_in_date": "2025-07-01",
             "check_out_date": "2025-07-08",
             "num_guests": 2,
@@ -51,13 +51,13 @@ class TestCreateReservation:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
         sample_pricing: dict[str, Any],
     ) -> None:
         """Should include calculated pricing in reservation."""
-        # Given: A verified guest
+        # Given: A verified customer
         reservation_data = {
-            "guest_id": sample_guest["guest_id"],
+            "customer_id": sample_customer["customer_id"],
             "check_in_date": "2025-07-01",
             "check_out_date": "2025-07-08",  # 7 nights in high season
             "num_guests": 2,
@@ -79,7 +79,7 @@ class TestCreateReservation:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
         sample_reservation: dict[str, Any],
     ) -> None:
         """Should prevent double booking of the same dates."""
@@ -88,7 +88,7 @@ class TestCreateReservation:
 
         # When: Trying to book overlapping dates
         reservation_data = {
-            "guest_id": sample_guest["guest_id"],
+            "customer_id": sample_customer["customer_id"],
             "check_in_date": "2025-07-18",  # Overlaps with existing
             "check_out_date": "2025-07-25",
             "num_guests": 2,
@@ -105,13 +105,13 @@ class TestCreateReservation:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
         sample_pricing: dict[str, Any],
     ) -> None:
         """Should enforce minimum stay requirements."""
         # Given: Peak season requires 7-night minimum
         reservation_data = {
-            "guest_id": sample_guest["guest_id"],
+            "customer_id": sample_customer["customer_id"],
             "check_in_date": "2025-08-01",
             "check_out_date": "2025-08-04",  # Only 3 nights
             "num_guests": 2,
@@ -125,17 +125,17 @@ class TestCreateReservation:
         assert "minimum" in result["error"].lower() or "min_stay" in result
 
     @pytest.mark.skip(reason="Tool not yet implemented")
-    def test_create_reservation_requires_verified_guest(
+    def test_create_reservation_requires_verified_customer(
         self,
         dynamodb_client: Any,
         create_tables: None,
     ) -> None:
         """Should require email verification before booking."""
-        # Given: An unverified guest
-        unverified_guest_id = "guest-unverified-123"
+        # Given: An unverified customer
+        unverified_customer_id = "customer-unverified-123"
 
         reservation_data = {
-            "guest_id": unverified_guest_id,
+            "customer_id": unverified_customer_id,
             "check_in_date": "2025-07-01",
             "check_out_date": "2025-07-08",
             "num_guests": 2,
@@ -153,12 +153,12 @@ class TestCreateReservation:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
     ) -> None:
         """Should validate maximum guest count."""
         # Given: Property max capacity is 4
         reservation_data = {
-            "guest_id": sample_guest["guest_id"],
+            "customer_id": sample_customer["customer_id"],
             "check_in_date": "2025-07-01",
             "check_out_date": "2025-07-08",
             "num_guests": 10,  # Too many guests
@@ -176,7 +176,7 @@ class TestCreateReservation:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
     ) -> None:
         """Should generate unique confirmation numbers."""
         # When: Creating multiple reservations
@@ -189,7 +189,7 @@ class TestCreateReservation:
 
         for check_in, check_out in dates:
             result = create_reservation(
-                guest_id=sample_guest["guest_id"],
+                customer_id=sample_customer["customer_id"],
                 check_in_date=check_in,
                 check_out_date=check_out,
                 num_guests=2,
@@ -205,12 +205,12 @@ class TestCreateReservation:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
     ) -> None:
         """Should generate confirmation in expected format."""
         # When: Creating a reservation
         result = create_reservation(
-            guest_id=sample_guest["guest_id"],
+            customer_id=sample_customer["customer_id"],
             check_in_date="2025-07-01",
             check_out_date="2025-07-08",
             num_guests=2,
@@ -231,7 +231,7 @@ class TestReservationConcurrency:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
     ) -> None:
         """First completed payment should win in concurrent booking scenario."""
         # This is a complex test that should be in integration tests
@@ -243,21 +243,21 @@ class TestReservationConcurrency:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
     ) -> None:
         """Pending reservation should temporarily hold dates."""
         # Given: A reservation in pending_payment status
         result = create_reservation(
-            guest_id=sample_guest["guest_id"],
+            customer_id=sample_customer["customer_id"],
             check_in_date="2025-07-01",
             check_out_date="2025-07-08",
             num_guests=2,
         )
         assert result["success"] is True
 
-        # When: Another guest tries to book same dates
+        # When: Another customer tries to book same dates
         other_result = create_reservation(
-            guest_id="guest-other-456",
+            customer_id="customer-other-456",
             check_in_date="2025-07-01",
             check_out_date="2025-07-08",
             num_guests=2,
@@ -275,11 +275,11 @@ class TestReservationStatusTransitions:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
     ) -> None:
         """New reservations should start with pending_payment status."""
         result = create_reservation(
-            guest_id=sample_guest["guest_id"],
+            customer_id=sample_customer["customer_id"],
             check_in_date="2025-07-01",
             check_out_date="2025-07-08",
             num_guests=2,
@@ -297,7 +297,7 @@ class TestReservationEdgeCases:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
         sample_reservation: dict[str, Any],
     ) -> None:
         """Should allow booking starting on another booking's checkout day."""
@@ -305,7 +305,7 @@ class TestReservationEdgeCases:
 
         # When: Booking July 22-29 (checkin on checkout day)
         result = create_reservation(
-            guest_id=sample_guest["guest_id"],
+            customer_id=sample_customer["customer_id"],
             check_in_date="2025-07-22",  # Same as previous checkout
             check_out_date="2025-07-29",
             num_guests=2,
@@ -319,11 +319,11 @@ class TestReservationEdgeCases:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
     ) -> None:
         """Should store created_at and updated_at timestamps."""
         result = create_reservation(
-            guest_id=sample_guest["guest_id"],
+            customer_id=sample_customer["customer_id"],
             check_in_date="2025-07-01",
             check_out_date="2025-07-08",
             num_guests=2,
@@ -338,11 +338,11 @@ class TestReservationEdgeCases:
         self,
         dynamodb_client: Any,
         create_tables: None,
-        sample_guest: dict[str, Any],
+        sample_customer: dict[str, Any],
     ) -> None:
         """Should handle reservation without special requests."""
         result = create_reservation(
-            guest_id=sample_guest["guest_id"],
+            customer_id=sample_customer["customer_id"],
             check_in_date="2025-07-01",
             check_out_date="2025-07-08",
             num_guests=2,

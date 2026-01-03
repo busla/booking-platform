@@ -76,30 +76,30 @@ def dynamodb_tables(aws_credentials: None) -> Generator[Any, None, None]:
     with mock_aws():
         dynamodb = boto3.client("dynamodb", region_name="eu-west-1")
 
-        # Create reservations table with GSI for guest_id lookup
+        # Create reservations table with GSI for customer_id lookup
         dynamodb.create_table(
             TableName="test-booking-reservations",
             KeySchema=[{"AttributeName": "reservation_id", "KeyType": "HASH"}],
             AttributeDefinitions=[
                 {"AttributeName": "reservation_id", "AttributeType": "S"},
-                {"AttributeName": "guest_id", "AttributeType": "S"},
+                {"AttributeName": "customer_id", "AttributeType": "S"},
             ],
             GlobalSecondaryIndexes=[
                 {
-                    "IndexName": "guest-checkin-index",
-                    "KeySchema": [{"AttributeName": "guest_id", "KeyType": "HASH"}],
+                    "IndexName": "customer-checkin-index",
+                    "KeySchema": [{"AttributeName": "customer_id", "KeyType": "HASH"}],
                     "Projection": {"ProjectionType": "ALL"},
                 }
             ],
             BillingMode="PAY_PER_REQUEST",
         )
 
-        # Create guests table with GSIs for email and cognito_sub lookup
+        # Create customers table with GSIs for email and cognito_sub lookup
         dynamodb.create_table(
-            TableName="test-booking-guests",
-            KeySchema=[{"AttributeName": "guest_id", "KeyType": "HASH"}],
+            TableName="test-booking-customers",
+            KeySchema=[{"AttributeName": "customer_id", "KeyType": "HASH"}],
             AttributeDefinitions=[
-                {"AttributeName": "guest_id", "AttributeType": "S"},
+                {"AttributeName": "customer_id", "AttributeType": "S"},
                 {"AttributeName": "email", "AttributeType": "S"},
                 {"AttributeName": "cognito_sub", "AttributeType": "S"},
             ],
@@ -142,24 +142,24 @@ def dynamodb_tables(aws_credentials: None) -> Generator[Any, None, None]:
 
 
 @pytest.fixture
-def seed_guest(dynamodb_tables: Any) -> dict[str, Any]:
-    """Seed a test guest that matches the mock JWT from conftest.py.
+def seed_customer(dynamodb_tables: Any) -> dict[str, Any]:
+    """Seed a test customer that matches the mock JWT from conftest.py.
 
     The mock JWT has cognito_sub="test-cognito-sub-123".
     """
     dynamodb = boto3.resource("dynamodb", region_name="eu-west-1")
-    table = dynamodb.Table("test-booking-guests")
+    table = dynamodb.Table("test-booking-customers")
 
-    guest = {
-        "guest_id": "guest-returning-user-001",
+    customer = {
+        "customer_id": "customer-returning-user-001",
         "email": "test@example.com",
         "name": "Test User",
         "cognito_sub": "test-cognito-sub-123",  # Must match conftest mock JWT
         "created_at": "2025-01-01T00:00:00Z",
     }
 
-    table.put_item(Item=guest)
-    return guest
+    table.put_item(Item=customer)
+    return customer
 
 
 @pytest.fixture
@@ -209,7 +209,7 @@ class TestReturningUserTokenReuse:
     async def test_multiple_reservation_queries_same_token(
         self,
         dynamodb_tables: Any,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Verify multiple calls to get_my_reservations work with same token.
@@ -240,7 +240,7 @@ class TestReturningUserTokenReuse:
     async def test_create_then_retrieve_reservations(
         self,
         dynamodb_tables: Any,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         seed_available_dates: list[str],
         mock_tool_context: MagicMock,
     ) -> None:
@@ -279,7 +279,7 @@ class TestReturningUserTokenReuse:
     async def test_modify_own_reservation_with_cached_token(
         self,
         dynamodb_tables: Any,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         seed_available_dates: list[str],
         mock_tool_context: MagicMock,
     ) -> None:
@@ -323,7 +323,7 @@ class TestJWTClaimExtraction:
     async def test_email_extracted_from_token_consistently(
         self,
         dynamodb_tables: Any,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         seed_available_dates: list[str],
         mock_tool_context: MagicMock,
     ) -> None:
@@ -345,15 +345,15 @@ class TestJWTClaimExtraction:
         assert result.get("authenticated_email") == "test@example.com"
 
     @pytest.mark.asyncio
-    async def test_cognito_sub_used_for_guest_lookup(
+    async def test_cognito_sub_used_for_customer_lookup(
         self,
         dynamodb_tables: Any,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
-        """Verify cognito_sub from JWT is used to look up guest.
+        """Verify cognito_sub from JWT is used to look up customer.
 
-        The tool should use the JWT sub claim to find the guest record,
+        The tool should use the JWT sub claim to find the customer record,
         ensuring proper data isolation.
         """
         from shared.tools.reservations import get_my_reservations
@@ -362,7 +362,7 @@ class TestJWTClaimExtraction:
 
         assert result.get("status") == "success"
         # The fact that this succeeds means cognito_sub lookup worked
-        # (seed_guest has cognito_sub="test-cognito-sub-123")
+        # (seed_customer has cognito_sub="test-cognito-sub-123")
 
 
 class TestDataIsolation:
@@ -372,21 +372,21 @@ class TestDataIsolation:
     async def test_cannot_see_other_user_reservations(
         self,
         dynamodb_tables: Any,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Verify user cannot see reservations belonging to other users.
 
         Even with a valid token, user should only see their own data.
         """
-        # Create a reservation for a DIFFERENT guest
+        # Create a reservation for a DIFFERENT customer
         dynamodb = boto3.resource("dynamodb", region_name="eu-west-1")
 
-        # Create another guest
-        guests_table = dynamodb.Table("test-booking-guests")
-        guests_table.put_item(
+        # Create another customer
+        customers_table = dynamodb.Table("test-booking-customers")
+        customers_table.put_item(
             Item={
-                "guest_id": "guest-other-user-999",
+                "customer_id": "customer-other-user-999",
                 "email": "other@example.com",
                 "name": "Other User",
                 "cognito_sub": "other-cognito-sub-999",  # Different from mock JWT
@@ -394,12 +394,12 @@ class TestDataIsolation:
             }
         )
 
-        # Create reservation for other guest
+        # Create reservation for other customer
         reservations_table = dynamodb.Table("test-booking-reservations")
         reservations_table.put_item(
             Item={
                 "reservation_id": "RES-OTHER-001",
-                "guest_id": "guest-other-user-999",
+                "customer_id": "customer-other-user-999",
                 "check_in": _date_str(0),
                 "check_out": _date_str(3),
                 "nights": 3,
@@ -415,8 +415,8 @@ class TestDataIsolation:
         # Query with test user token (cognito_sub="test-cognito-sub-123")
         result = await get_my_reservations(tool_context=mock_tool_context)
 
-        # Should return 0 reservations (test user has none)
-        # NOT the other user's reservation
+        # Should return 0 reservations (test customer has none)
+        # NOT the other customer's reservation
         assert result.get("status") == "success"
         assert result.get("count") == 0
         assert result.get("reservations") == []
@@ -425,17 +425,17 @@ class TestDataIsolation:
     async def test_cannot_modify_other_user_reservation(
         self,
         dynamodb_tables: Any,
-        seed_guest: dict[str, Any],
+        seed_customer: dict[str, Any],
         mock_tool_context: MagicMock,
     ) -> None:
         """Verify user cannot modify reservations belonging to other users."""
-        # Create another guest and their reservation
+        # Create another customer and their reservation
         dynamodb = boto3.resource("dynamodb", region_name="eu-west-1")
 
-        guests_table = dynamodb.Table("test-booking-guests")
-        guests_table.put_item(
+        customers_table = dynamodb.Table("test-booking-customers")
+        customers_table.put_item(
             Item={
-                "guest_id": "guest-other-user-888",
+                "customer_id": "customer-other-user-888",
                 "email": "other2@example.com",
                 "cognito_sub": "other-cognito-sub-888",
             }
@@ -445,7 +445,7 @@ class TestDataIsolation:
         reservations_table.put_item(
             Item={
                 "reservation_id": "RES-OTHER-002",
-                "guest_id": "guest-other-user-888",
+                "customer_id": "customer-other-user-888",
                 "check_in": _date_str(10),
                 "check_out": _date_str(13),
                 "nights": 3,

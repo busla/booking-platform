@@ -1,6 +1,6 @@
 """Unit tests for recommendation tools (T079).
 
-Tests the get_recommendations functionality that helps guests
+Tests the get_recommendations functionality that helps customers
 discover activities and places based on their interests.
 """
 

@@ -31,15 +31,15 @@ from shared.services.payment_service import PaymentService
 router = APIRouter(tags=["payments"])
 
 
-def _get_user_guest_id(request: Request) -> str | None:
-    """Extract guest_id from request based on JWT sub claim."""
+def _get_user_customer_id(request: Request) -> str | None:
+    """Extract customer_id from request based on JWT sub claim."""
     user_sub = request.headers.get("x-user-sub")
     if not user_sub:
         return None
 
     db = get_dynamodb_service()
-    guest = db.get_guest_by_cognito_sub(user_sub)
-    return guest.get("guest_id") if guest else None
+    customer = db.get_customer_by_cognito_sub(user_sub)
+    return customer.get("customer_id") if customer else None
 
 
 @router.post(
@@ -103,8 +103,8 @@ async def process_payment(
         )
 
     # Verify ownership
-    guest_id = _get_user_guest_id(request)
-    if reservation.guest_id != guest_id:
+    customer_id = _get_user_customer_id(request)
+    if reservation.customer_id != customer_id:
         raise BookingError(
             code=ErrorCode.UNAUTHORIZED,
             details={"message": "You can only pay for your own reservations"},
@@ -250,8 +250,8 @@ async def retry_payment(
         )
 
     # Verify ownership
-    guest_id = _get_user_guest_id(request)
-    if reservation.guest_id != guest_id:
+    customer_id = _get_user_customer_id(request)
+    if reservation.customer_id != customer_id:
         raise BookingError(
             code=ErrorCode.UNAUTHORIZED,
             details={"message": "You can only retry payments for your own reservations"},

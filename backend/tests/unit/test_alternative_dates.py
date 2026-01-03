@@ -1,6 +1,6 @@
 """Unit tests for alternative date suggestions (T076, T077).
 
-Tests the suggest_alternative_dates functionality that helps guests
+Tests the suggest_alternative_dates functionality that helps customers
 find available dates when their requested dates are unavailable.
 """
 

@@ -109,8 +109,8 @@ class TestCreateReservationAuthBehavior:
 
         # Setup mock DB
         mock_db = MagicMock()
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
             "cognito_sub": "test-cognito-sub-123",
         }
@@ -130,8 +130,8 @@ class TestCreateReservationAuthBehavior:
         assert result.get("status") == "success"
         assert "reservation_id" in result
 
-        # Verify guest lookup was called with cognito_sub from token
-        mock_db.get_guest_by_cognito_sub.assert_called_once_with("test-cognito-sub-123")
+        # Verify customer lookup was called with cognito_sub from token
+        mock_db.get_customer_by_cognito_sub.assert_called_once_with("test-cognito-sub-123")
 
     @patch("shared.tools.reservations._get_db")
     async def test_create_reservation_extracts_email_from_jwt(
@@ -141,8 +141,8 @@ class TestCreateReservationAuthBehavior:
         from shared.tools.reservations import create_reservation
 
         mock_db = MagicMock()
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
             "cognito_sub": "test-cognito-sub-123",
         }
@@ -200,10 +200,10 @@ class TestModifyReservationAuthBehavior:
         from shared.tools.reservations import modify_reservation
 
         mock_db = MagicMock()
-        # Reservation belongs to guest-123
+        # Reservation belongs to customer-123
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2025-09-01",
             "check_out": "2025-09-05",
             "nights": 4,
@@ -212,9 +212,9 @@ class TestModifyReservationAuthBehavior:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        # Token's cognito_sub maps to guest-123
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        # Token's cognito_sub maps to customer-123
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
             "cognito_sub": "test-cognito-sub-123",
         }
@@ -228,7 +228,7 @@ class TestModifyReservationAuthBehavior:
         )
 
         assert result.get("status") == "success"
-        mock_db.get_guest_by_cognito_sub.assert_called_once_with("test-cognito-sub-123")
+        mock_db.get_customer_by_cognito_sub.assert_called_once_with("test-cognito-sub-123")
 
     @patch("shared.tools.reservations._get_db")
     async def test_modify_reservation_rejects_non_owner(
@@ -238,10 +238,10 @@ class TestModifyReservationAuthBehavior:
         from shared.tools.reservations import modify_reservation
 
         mock_db = MagicMock()
-        # Reservation belongs to different guest
+        # Reservation belongs to different customer
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "other-guest-999",  # Different guest
+            "customer_id": "other-customer-999",  # Different customer
             "check_in": "2025-09-01",
             "check_out": "2025-09-05",
             "nights": 4,
@@ -250,9 +250,9 @@ class TestModifyReservationAuthBehavior:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        # Token's cognito_sub maps to guest-123
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        # Token's cognito_sub maps to customer-123
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
             "cognito_sub": "test-cognito-sub-123",
         }
@@ -283,7 +283,7 @@ class TestCancelReservationAuthBehavior:
         future_checkin = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": future_checkin,
             "check_out": (datetime.now() + timedelta(days=35)).strftime("%Y-%m-%d"),
             "nights": 5,
@@ -292,8 +292,8 @@ class TestCancelReservationAuthBehavior:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
             "cognito_sub": "test-cognito-sub-123",
         }
@@ -307,7 +307,7 @@ class TestCancelReservationAuthBehavior:
         )
 
         assert result.get("status") == "success"
-        mock_db.get_guest_by_cognito_sub.assert_called_once_with("test-cognito-sub-123")
+        mock_db.get_customer_by_cognito_sub.assert_called_once_with("test-cognito-sub-123")
 
 
 class TestGetMyReservationsAuthBehavior:
@@ -325,12 +325,12 @@ class TestGetMyReservationsAuthBehavior:
         from shared.tools.reservations import get_my_reservations
 
         mock_db = MagicMock()
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
             "cognito_sub": "test-cognito-sub-123",
         }
-        mock_db.get_reservations_by_guest_id.return_value = [
+        mock_db.get_reservations_by_customer_id.return_value = [
             {
                 "reservation_id": "RES-2025-001",
                 "check_in": "2025-07-01",
@@ -349,20 +349,20 @@ class TestGetMyReservationsAuthBehavior:
         assert result.get("status") == "success"
         assert result.get("count") == 1
 
-        # Verify JWT sub was used to look up guest
-        mock_db.get_guest_by_cognito_sub.assert_called_once_with("test-cognito-sub-123")
-        # Verify reservations were queried by guest_id (derived from JWT sub)
-        mock_db.get_reservations_by_guest_id.assert_called_once_with("guest-123")
+        # Verify JWT sub was used to look up customer
+        mock_db.get_customer_by_cognito_sub.assert_called_once_with("test-cognito-sub-123")
+        # Verify reservations were queried by customer_id (derived from JWT sub)
+        mock_db.get_reservations_by_customer_id.assert_called_once_with("customer-123")
 
     @patch("shared.tools.reservations._get_db")
-    async def test_get_my_reservations_handles_no_guest_record(
+    async def test_get_my_reservations_handles_no_customer_record(
         self, mock_get_db: MagicMock, mock_tool_context: MagicMock
     ) -> None:
-        """Verify get_my_reservations handles authenticated user without guest record."""
+        """Verify get_my_reservations handles authenticated user without customer record."""
         from shared.tools.reservations import get_my_reservations
 
         mock_db = MagicMock()
-        mock_db.get_guest_by_cognito_sub.return_value = None  # No guest record
+        mock_db.get_customer_by_cognito_sub.return_value = None  # No customer record
         mock_get_db.return_value = mock_db
 
         result = await get_my_reservations(tool_context=mock_tool_context)

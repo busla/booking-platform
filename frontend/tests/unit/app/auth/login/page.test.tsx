@@ -45,7 +45,8 @@ vi.mock('@/components/providers/AmplifyProvider', () => ({
 }))
 
 // Import component after mocks are set up
-import LoginPage from '@/app/auth/login/page'
+// Note: (auth) is a route group - doesn't affect URL but organizes files
+import LoginPage from '@/app/(auth)/login/page'
 
 describe('LoginPage', () => {
   beforeEach(() => {

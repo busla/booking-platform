@@ -39,14 +39,14 @@ from shared.services.dynamodb import get_dynamodb_service
 router = APIRouter(tags=["reservations"])
 
 
-def _get_user_guest_id(request: Request) -> str | None:
-    """Extract guest_id from request based on JWT claims.
+def _get_user_customer_id(request: Request) -> str | None:
+    """Extract customer_id from request based on JWT claims.
 
     API Gateway validates JWT and passes sub via x-user-sub header.
-    We try to look up the guest by cognito_sub first, then fallback
+    We try to look up the customer by cognito_sub first, then fallback
     to email lookup and auto-link the cognito_sub if found.
 
-    This handles the case where guests were created during email
+    This handles the case where customers were created during email
     verification (without cognito_sub) and later authenticate via
     Cognito (which provides cognito_sub).
     """
@@ -57,9 +57,9 @@ def _get_user_guest_id(request: Request) -> str | None:
     db = get_dynamodb_service()
 
     # First, try lookup by cognito_sub (fast path for returning users)
-    guest = db.get_guest_by_cognito_sub(user_sub)
-    if guest:
-        return guest.get("guest_id")
+    customer = db.get_customer_by_cognito_sub(user_sub)
+    if customer:
+        return customer.get("customer_id")
 
     # Fallback: Get email from Cognito claims and lookup by email
     # Mangum exposes the Lambda event via ASGI scope
@@ -70,16 +70,16 @@ def _get_user_guest_id(request: Request) -> str | None:
     if not user_email:
         return None
 
-    guest = db.get_guest_by_email(user_email)
-    if not guest:
+    customer = db.get_customer_by_email(user_email)
+    if not customer:
         return None
 
-    # Auto-link cognito_sub to guest for future fast lookups
-    guest_id = guest.get("guest_id")
-    if guest_id:
-        db.update_guest_cognito_sub(guest_id, user_sub)
+    # Auto-link cognito_sub to customer for future fast lookups
+    customer_id = customer.get("customer_id")
+    if customer_id:
+        db.update_customer_cognito_sub(customer_id, user_sub)
 
-    return guest_id
+    return customer_id
 
 
 @router.post(
@@ -97,7 +97,7 @@ Returns the created reservation with pricing breakdown.
 - Dates must be available (use GET /api/availability first)
 - Must meet minimum stay requirement for the season
 - Total guests (adults + children) must not exceed 4
-- Guest ID is derived from JWT token
+- Customer ID is derived from JWT token
 """,
     response_description="Created reservation details",
     response_model=Reservation,
@@ -142,17 +142,17 @@ async def create_reservation(
             details={"requested": str(total_guests), "maximum": "4"},
         )
 
-    # Get guest ID from JWT
-    guest_id = _get_user_guest_id(request)
-    if not guest_id:
+    # Get customer ID from JWT
+    customer_id = _get_user_customer_id(request)
+    if not customer_id:
         raise HTTPException(
             status_code=HTTP_403_FORBIDDEN,
-            detail="Guest profile not found. Complete verification first.",
+            detail="Customer profile not found. Complete verification first.",
         )
 
     # Create reservation using shared model
     create_data = ReservationCreate(
-        guest_id=guest_id,
+        customer_id=customer_id,
         check_in=body.check_in,
         check_out=body.check_out,
         num_adults=body.num_adults,
@@ -271,12 +271,12 @@ async def get_my_reservations(
 
     Optionally filter by status.
     """
-    guest_id = _get_user_guest_id(request)
-    if not guest_id:
-        # User is authenticated but no guest profile yet
+    customer_id = _get_user_customer_id(request)
+    if not customer_id:
+        # User is authenticated but no customer profile yet
         return ReservationListResponse(reservations=[], total_count=0)
 
-    reservations = service.get_guest_reservations(guest_id)
+    reservations = service.get_customer_reservations(customer_id)
 
     # Filter by status if specified
     if status:
@@ -352,8 +352,8 @@ async def modify_reservation(
         )
 
     # Verify ownership
-    guest_id = _get_user_guest_id(request)
-    if reservation.guest_id != guest_id:
+    customer_id = _get_user_customer_id(request)
+    if reservation.customer_id != customer_id:
         raise BookingError(
             code=ErrorCode.UNAUTHORIZED,
             details={"message": "You can only modify your own reservations"},
@@ -459,8 +459,8 @@ async def cancel_reservation(
         )
 
     # Verify ownership
-    guest_id = _get_user_guest_id(request)
-    if reservation.guest_id != guest_id:
+    customer_id = _get_user_customer_id(request)
+    if reservation.customer_id != customer_id:
         raise BookingError(
             code=ErrorCode.UNAUTHORIZED,
             details={"message": "You can only cancel your own reservations"},
@@ -476,7 +476,7 @@ async def cancel_reservation(
     # Cancel and get refund amount
     success, refund_amount = service.cancel_reservation(
         reservation_id,
-        reason or "Cancelled by guest",
+        reason or "Cancelled by customer",
     )
 
     if not success:

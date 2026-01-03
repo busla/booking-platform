@@ -1,9 +1,9 @@
 """Unit tests for modify_reservation tool (T094).
 
-Tests the modify_reservation functionality that allows guests
+Tests the modify_reservation functionality that allows customers
 to update their booking dates or guest count.
 
-Note: Tests must mock get_guest_by_cognito_sub as the tool verifies
+Note: Tests must mock get_customer_by_cognito_sub as the tool verifies
 ownership via AgentCore Identity OAuth2 (cognito_sub from JWT).
 """
 
@@ -30,11 +30,11 @@ class TestModifyReservation:
         """Should modify reservation dates successfully."""
         from shared.tools.reservations import modify_reservation
 
-        # Setup mock DB with guest ownership verification
+        # Setup mock DB with customer ownership verification
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",  # Must match guest returned by get_guest_by_cognito_sub
+            "customer_id": "customer-123",  # Must match customer returned by get_customer_by_cognito_sub
             "check_in": "2025-07-15",
             "check_out": "2025-07-22",
             "nights": 7,
@@ -46,9 +46,9 @@ class TestModifyReservation:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        # Mock guest lookup (ownership verification)
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        # Mock customer lookup (ownership verification)
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
             "cognito_sub": "test-cognito-sub-123",
         }
@@ -100,7 +100,7 @@ class TestModifyReservation:
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2025-07-15",
             "check_out": "2025-07-22",
             "nights": 7,
@@ -109,8 +109,8 @@ class TestModifyReservation:
             "status": ReservationStatus.CANCELLED.value,
             "payment_status": PaymentStatus.REFUNDED.value,
         }
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
         }
         mock_get_db.return_value = mock_db
@@ -124,7 +124,7 @@ class TestModifyReservation:
 
         # ToolError format uses "success" instead of "status"
         assert result["success"] is False
-        # ToolError.UNAUTHORIZED message is "Guest not authorized for this action"
+        # ToolError.UNAUTHORIZED message is "Customer not authorized for this action"
         assert "not authorized" in result["message"].lower() or "cancelled" in result["message"].lower()
 
     @patch("shared.tools.reservations._get_db")
@@ -141,7 +141,7 @@ class TestModifyReservation:
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2025-07-15",
             "check_out": "2025-07-22",
             "nights": 7,
@@ -150,8 +150,8 @@ class TestModifyReservation:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
         }
         mock_get_db.return_value = mock_db
@@ -182,7 +182,7 @@ class TestModifyReservation:
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2025-07-15",
             "check_out": "2025-07-22",
             "nights": 7,
@@ -192,8 +192,8 @@ class TestModifyReservation:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
         }
         mock_db.update_item.return_value = True
@@ -219,7 +219,7 @@ class TestModifyReservation:
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2025-07-15",
             "check_out": "2025-07-22",
             "nights": 7,
@@ -229,8 +229,8 @@ class TestModifyReservation:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
         }
         mock_get_db.return_value = mock_db
@@ -242,7 +242,7 @@ class TestModifyReservation:
         )
 
         assert result.get("status") == "error" or result.get("success") is False
-        assert "maximum" in result["message"].lower() or "guest" in result["message"].lower()
+        assert "maximum" in result["message"].lower() or "capacity" in result["message"].lower()
 
 
 class TestModifyReservationPriceRecalculation:
@@ -264,7 +264,7 @@ class TestModifyReservationPriceRecalculation:
         mock_db = MagicMock()
         mock_db.get_item.return_value = {
             "reservation_id": "RES-2025-ABC12345",
-            "guest_id": "guest-123",
+            "customer_id": "customer-123",
             "check_in": "2025-07-15",
             "check_out": "2025-07-22",  # 7 nights
             "nights": 7,
@@ -275,8 +275,8 @@ class TestModifyReservationPriceRecalculation:
             "status": ReservationStatus.CONFIRMED.value,
             "payment_status": PaymentStatus.COMPLETED.value,
         }
-        mock_db.get_guest_by_cognito_sub.return_value = {
-            "guest_id": "guest-123",
+        mock_db.get_customer_by_cognito_sub.return_value = {
+            "customer_id": "customer-123",
             "email": "test@example.com",
         }
         mock_db.update_item.return_value = True

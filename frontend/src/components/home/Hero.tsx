@@ -30,7 +30,7 @@ export interface HeroProps {
 export function Hero({
   title,
   subtitle,
-  backgroundImage = '/images/hero-pool.jpg',
+  backgroundImage = '/photos/hero.jpg',
   ctaText,
   ctaHref,
   secondaryCtaText,

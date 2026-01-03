@@ -16,7 +16,7 @@ from shared.models import (
     PaymentStatus,
     ReservationStatus,
     # Key models
-    Guest,
+    Customer,
     Reservation,
     Property,
     Payment,
@@ -33,7 +33,7 @@ __all__ = [
     "PaymentStatus",
     "ReservationStatus",
     # Models
-    "Guest",
+    "Customer",
     "Reservation",
     "Property",
     "Payment",

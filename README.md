@@ -61,7 +61,8 @@ An AI agent-driven vacation rental booking platform for a single apartment in Qu
 - **Language**: TypeScript 5.x (strict mode)
 - **Package Manager**: Yarn Berry (v4.12+)
 - **Styling**: Tailwind CSS 3.4+
-- **UI Library**: shadcn/ui (button, form, dialog, select, input, card components)
+- **UI Library**: shadcn/ui (button, form, dialog, select, input, card, alert, badge components)
+- **Authentication**: AWS Amplify (Cognito EMAIL_OTP passwordless auth)
 - **AI Integration**: Vercel AI SDK v6, @ai-sdk/react
 - **Date Picking**: React Day Picker 9.13+
 - **Photo Gallery**: yet-another-react-lightbox 3.28+
@@ -77,7 +78,7 @@ An AI agent-driven vacation rental booking platform for a single apartment in Qu
 - **Data Validation**: Pydantic v2 (strict mode)
 - **LLM**: Amazon Bedrock (Claude Sonnet)
 - **Database**: AWS DynamoDB (6 tables)
-- **Auth**: AWS Cognito (passwordless email verification via OTP)
+- **Auth**: AWS Cognito (passwordless email OTP, customer profile schema with email, name, phone_number)
 - **Agent Runtime**: AWS Bedrock AgentCore Runtime
 
 ### Infrastructure
@@ -131,7 +132,7 @@ booking/
 │   ├── pyproject.toml          # Workspace definition
 │   ├── shared/                 # Shared components
 │   │   ├── src/shared/
-│   │   │   ├── models/         # Pydantic models (Reservation, Guest, etc.)
+│   │   │   ├── models/         # Pydantic models (Reservation, Customer, etc.)
 │   │   │   ├── services/       # Business logic (DynamoDB, booking, pricing)
 │   │   │   ├── tools/          # @tool decorated functions (agent tools)
 │   │   │   └── utils/          # Utilities (JWT, errors, etc.)
@@ -346,42 +347,58 @@ All endpoints auto-generated from OpenAPI spec. Frontend uses generated TypeScri
 - `GET /api/area` - Get area information
 - `GET /api/area/recommendations` - Get activity recommendations
 
-### Verification Endpoints (public)
-- `POST /api/guests/initiate-verification` - Send OTP to email
-- `POST /api/guests/verify-code` - Verify OTP and get JWT
-
-### Protected Endpoints (JWT required)
+### Customer Endpoints (JWT required)
 - `GET /api/customers/me` - Get current customer profile
 - `POST /api/customers/me` - Create customer profile
 - `PUT /api/customers/me` - Update current customer profile
+
+Note: Email verification is now handled via AWS Amplify's native EMAIL_OTP authentication flow, no API endpoints required.
+
+### Booking Endpoints (JWT required)
 - `POST /api/reservations` - Create reservation
 - `PATCH /api/reservations/{id}` - Modify reservation
 - `DELETE /api/reservations/{id}` - Cancel reservation
 - `GET /api/reservations/{id}` - Get reservation details
-- `PATCH /api/guests/{id}` - Update guest profile
 - `POST /api/payments` - Process payment
 
 ## AI Agent Tools
 
 Available in `/agent` chat interface:
 
-### Inquiry Tools (no side effects)
+### Availability Tools
 - `check_availability` - Check if dates are available
 - `get_calendar` - Get month availability
+
+### Pricing Tools
 - `get_pricing` - Get current pricing
 - `calculate_total` - Calculate price for dates
+- `get_seasonal_rates` - Get all seasonal rates
+- `check_minimum_stay` - Check minimum night requirement
+- `get_minimum_stay_info` - Get minimum stay details
+
+### Reservation Tools
+- `get_reservation` - Get existing reservation details
+- `get_my_reservations` - Get customer's past reservations
+
+### Property & Area Tools
 - `get_property_details` - Full property information
 - `get_photos` - Get photo gallery
 - `get_area_info` - Area attractions and information
 - `get_recommendations` - Personalized activity recommendations
-- `get_guest_info` - Retrieve guest profile
-- `get_reservation` - Get existing reservation details
 
-### Booking Tools (verification required)
+### Customer Profile Tools
+- `get_customer_info` - Retrieve customer profile
+- `update_customer_details` - Update customer profile
+
+### Booking Tools (requires verification)
 - `create_reservation` - Create new booking
 - `modify_reservation` - Change existing booking
 - `cancel_reservation` - Cancel booking
+
+### Payment Tools
 - `process_payment` - Process payment
+- `get_payment_status` - Check payment status
+- `retry_payment` - Retry failed payment
 
 ### Verification Tools
 - `initiate_verification` - Send OTP to email
@@ -393,8 +410,8 @@ Available in `/agent` chat interface:
 
 | Table Name | PK | SK | Purpose |
 |-----------|----|----|---------|
-| `booking-{env}-reservations` | `reservation_id` | — | Guest bookings |
-| `booking-{env}-guests` | `guest_id` | — | Guest profiles |
+| `booking-{env}-reservations` | `reservation_id` | — | Customer bookings |
+| `booking-{env}-customers` | `customer_id` | — | Customer profiles |
 | `booking-{env}-availability` | `date` | — | Date availability flags |
 | `booking-{env}-pricing` | `season_id` | — | Seasonal pricing tiers |
 | `booking-{env}-payments` | `payment_id` | — | Payment records |
@@ -405,13 +422,13 @@ Available in `/agent` chat interface:
 ```json
 {
   "reservation_id": "RES-2025-ABC123",
-  "guest_id": "GUEST-12345",
-  "email": "guest@example.com",
+  "customer_id": "CUST-12345",
+  "email": "customer@example.com",
   "guest_name": "John Doe",
   "phone": "+34-123-456789",
   "check_in": "2025-06-15",
   "check_out": "2025-06-20",
-  "guest_count": 2,
+  "num_adults": 2,
   "total_price": 450.00,
   "status": "confirmed",
   "special_requests": "High floor preferred",
@@ -434,7 +451,7 @@ NEXT_PUBLIC_API_BASE_URL=https://api.example.com
 ```
 AWS_REGION=eu-west-1
 DYNAMODB_RESERVATIONS_TABLE=booking-dev-reservations
-DYNAMODB_GUESTS_TABLE=booking-dev-guests
+DYNAMODB_CUSTOMERS_TABLE=booking-dev-customers
 DYNAMODB_AVAILABILITY_TABLE=booking-dev-availability
 DYNAMODB_PRICING_TABLE=booking-dev-pricing
 DYNAMODB_PAYMENTS_TABLE=booking-dev-payments

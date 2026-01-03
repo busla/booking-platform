@@ -1,17 +1,17 @@
-"""Guest model for customer records."""
+"""Customer model for customer records."""
 
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
-class Guest(BaseModel):
-    """A registered guest (customer) in the system."""
+class Customer(BaseModel):
+    """A registered customer in the system."""
 
     model_config = ConfigDict(strict=True)
 
-    guest_id: str = Field(..., description="Unique guest ID (UUID)")
-    email: EmailStr = Field(..., description="Guest email (verified)")
+    customer_id: str = Field(..., description="Unique customer ID (UUID)")
+    email: EmailStr = Field(..., description="Customer email (verified)")
     cognito_sub: str | None = Field(
         default=None,
         description="Cognito User Pool subject identifier for OAuth2 binding",
@@ -33,8 +33,8 @@ class Guest(BaseModel):
     updated_at: datetime = Field(..., description="Last update timestamp")
 
 
-class GuestCreate(BaseModel):
-    """Data required to create a new guest."""
+class CustomerCreate(BaseModel):
+    """Data required to create a new customer."""
 
     model_config = ConfigDict(strict=True)
 
@@ -44,8 +44,8 @@ class GuestCreate(BaseModel):
     preferred_language: str = Field(default="en", pattern="^(en|es)$")
 
 
-class GuestUpdate(BaseModel):
-    """Fields that can be updated for a guest."""
+class CustomerUpdate(BaseModel):
+    """Fields that can be updated for a customer."""
 
     model_config = ConfigDict(strict=True)
 

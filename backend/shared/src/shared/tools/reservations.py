@@ -177,11 +177,11 @@ async def create_reservation(
 ) -> dict[str, Any]:
     """Create a new reservation with double-booking prevention.
 
-    Use this tool when a guest confirms they want to book the property.
+    Use this tool when a customer confirms they want to book the property.
     This will check availability and create a pending reservation.
     The reservation must be paid to be confirmed.
 
-    IMPORTANT: Only call this after the guest has confirmed they want to book.
+    IMPORTANT: Only call this after the customer has confirmed they want to book.
     First use check_availability to verify dates are available.
 
     Authentication is handled automatically via @requires_access_token decorator.
@@ -194,7 +194,7 @@ async def create_reservation(
         num_adults: Number of adult guests (at least 1)
         tool_context: Strands ToolContext (automatically injected)
         num_children: Number of children (default: 0)
-        special_requests: Any special requests from the guest (optional)
+        special_requests: Any special requests from the customer (optional)
         access_token: JWT access token (injected by @requires_access_token)
 
     Returns:
@@ -219,18 +219,18 @@ async def create_reservation(
         )
         return error.model_dump()
 
-    # Look up or create guest record for this user
+    # Look up or create customer record for this user
     db = _get_db()
-    guest = db.get_guest_by_cognito_sub(cognito_sub)
-    if not guest:
+    customer = db.get_customer_by_cognito_sub(cognito_sub)
+    if not customer:
         error = ToolError.from_code(
             ErrorCode.VERIFICATION_REQUIRED,
             details={"reason": "Please complete your profile before booking"},
         )
         return error.model_dump()
 
-    guest_id = guest["guest_id"]
-    logger.info("create_reservation called", extra={"guest_id": guest_id, "check_in": check_in, "check_out": check_out, "num_adults": num_adults, "num_children": num_children})
+    customer_id = customer["customer_id"]
+    logger.info("create_reservation called", extra={"customer_id": customer_id, "check_in": check_in, "check_out": check_out, "num_adults": num_adults, "num_children": num_children})
     try:
         start_date = _parse_date(check_in)
         end_date = _parse_date(check_out)
@@ -264,7 +264,7 @@ async def create_reservation(
     nights = (end_date - start_date).days
     dates_to_book = _date_range(start_date, end_date)
 
-    # db already retrieved above when looking up guest
+    # db already retrieved above when looking up customer
 
     # Check availability with atomic check
     is_available, unavailable_dates = _check_dates_available(db, dates_to_book)
@@ -297,7 +297,7 @@ async def create_reservation(
     # Create reservation record
     reservation = Reservation(
         reservation_id=reservation_id,
-        guest_id=guest_id,
+        customer_id=customer_id,
         check_in=start_date,
         check_out=end_date,
         num_adults=num_adults,
@@ -427,7 +427,7 @@ async def modify_reservation(
 ) -> dict[str, Any]:
     """Modify an existing reservation.
 
-    Use this tool when a guest wants to change their booking dates or
+    Use this tool when a customer wants to change their booking dates or
     number of guests. Price will be recalculated for date changes.
 
     IMPORTANT: Only modify reservations that are pending or confirmed.
@@ -474,8 +474,8 @@ async def modify_reservation(
         return error.model_dump()
 
     # Verify ownership: check that reservation belongs to authenticated user
-    guest = db.get_guest_by_cognito_sub(cognito_sub)
-    if not guest or item.get("guest_id") != guest.get("guest_id"):
+    customer = db.get_customer_by_cognito_sub(cognito_sub)
+    if not customer or item.get("customer_id") != customer.get("customer_id"):
         error = ToolError.from_code(
             ErrorCode.UNAUTHORIZED,
             details={"reason": "You can only modify your own reservations"},
@@ -665,7 +665,7 @@ async def cancel_reservation(
 ) -> dict[str, Any]:
     """Cancel an existing reservation.
 
-    Use this tool when a guest wants to cancel their booking.
+    Use this tool when a customer wants to cancel their booking.
     Refund amount depends on how far in advance the cancellation is made:
     - 30+ days before: 100% refund
     - 14-29 days before: 50% refund
@@ -710,8 +710,8 @@ async def cancel_reservation(
         return error.model_dump()
 
     # Verify ownership: check that reservation belongs to authenticated user
-    guest = db.get_guest_by_cognito_sub(cognito_sub)
-    if not guest or item.get("guest_id") != guest.get("guest_id"):
+    customer = db.get_customer_by_cognito_sub(cognito_sub)
+    if not customer or item.get("customer_id") != customer.get("customer_id"):
         error = ToolError.from_code(
             ErrorCode.UNAUTHORIZED,
             details={"reason": "You can only cancel your own reservations"},
@@ -843,7 +843,7 @@ async def get_my_reservations(
 ) -> dict[str, Any]:
     """Get all reservations for the authenticated user.
 
-    Use this tool when an authenticated guest asks about their bookings,
+    Use this tool when an authenticated customer asks about their bookings,
     such as "What are my reservations?" or "Show me my bookings".
 
     Authentication is handled automatically via @requires_access_token decorator.
@@ -871,12 +871,12 @@ async def get_my_reservations(
 
     db = _get_db()
 
-    # Look up guest by cognito_sub
-    guest = db.get_guest_by_cognito_sub(cognito_sub)
-    if not guest:
-        # User is authenticated but has no guest record yet
+    # Look up customer by cognito_sub
+    customer = db.get_customer_by_cognito_sub(cognito_sub)
+    if not customer:
+        # User is authenticated but has no customer record yet
         logger.info(
-            "Authenticated user has no guest record",
+            "Authenticated user has no customer record",
             extra={"cognito_sub": cognito_sub[:8] + "..."},
         )
         return {
@@ -886,11 +886,11 @@ async def get_my_reservations(
             "message": "You don't have any reservations yet. Would you like to make a booking?",
         }
 
-    guest_id = guest["guest_id"]
-    logger.info("Looking up reservations for guest", extra={"guest_id": guest_id})
+    customer_id = customer["customer_id"]
+    logger.info("Looking up reservations for customer", extra={"customer_id": customer_id})
 
-    # Get reservations for this guest
-    reservations = db.get_reservations_by_guest_id(guest_id)
+    # Get reservations for this customer
+    reservations = db.get_reservations_by_customer_id(customer_id)
 
     # Format reservations for response
     formatted = []
@@ -927,7 +927,7 @@ async def get_my_reservations(
 def get_reservation(reservation_id: str) -> dict[str, Any]:
     """Get details of an existing reservation.
 
-    Use this tool when a guest asks about their booking,
+    Use this tool when a customer asks about their booking,
     wants to see reservation details, or check status.
 
     Args:

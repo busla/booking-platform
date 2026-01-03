@@ -1,7 +1,7 @@
 """Unit tests for pricing tools (T045).
 
 Tests the get_pricing and calculate_total tools that allow
-the agent to provide pricing information to guests.
+the agent to provide pricing information to customers.
 """
 
 from datetime import date

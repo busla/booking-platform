@@ -1,7 +1,7 @@
 """Unit tests for photos tool (T086).
 
 Tests the get_photos functionality that provides apartment
-photos to guests with filtering by category.
+photos to customers with filtering by category.
 """
 
 import pytest
@@ -317,10 +317,10 @@ class TestPhotoCategoryHandling:
 class TestPhotoScenarios:
     """Scenario-based tests for photo use cases."""
 
-    def test_guest_wants_bedroom_photos(
+    def test_customer_wants_bedroom_photos(
         self, sample_property_with_photos: dict
     ) -> None:
-        """Guest asks 'Show me the bedrooms' should get bedroom photos."""
+        """Customer asks 'Show me the bedrooms' should get bedroom photos."""
         load_property_data_from_dict(sample_property_with_photos)
 
         result = get_photos(category="bedroom")
@@ -332,10 +332,10 @@ class TestPhotoScenarios:
         assert any("master" in c.lower() for c in captions)
         assert any("twin" in c.lower() for c in captions)
 
-    def test_guest_wants_pool_photos(
+    def test_customer_wants_pool_photos(
         self, sample_property_with_photos: dict
     ) -> None:
-        """Guest asks 'Is there a pool?' should get pool photos."""
+        """Customer asks 'Is there a pool?' should get pool photos."""
         load_property_data_from_dict(sample_property_with_photos)
 
         result = get_photos(category="pool")
@@ -344,10 +344,10 @@ class TestPhotoScenarios:
         assert result["total_count"] == 1
         assert "pool" in result["photos"][0]["caption"].lower()
 
-    def test_guest_wants_quick_overview(
+    def test_customer_wants_quick_overview(
         self, sample_property_with_photos: dict
     ) -> None:
-        """Guest asks 'Show me a few photos' should get limited photos."""
+        """Customer asks 'Show me a few photos' should get limited photos."""
         load_property_data_from_dict(sample_property_with_photos)
 
         result = get_photos(limit=3)
@@ -356,10 +356,10 @@ class TestPhotoScenarios:
         assert len(result["photos"]) == 3
         # First photos should be the most important ones (by display_order)
 
-    def test_guest_wants_all_photos(
+    def test_customer_wants_all_photos(
         self, sample_property_with_photos: dict
     ) -> None:
-        """Guest asks 'Show me all photos' should get all photos."""
+        """Customer asks 'Show me all photos' should get all photos."""
         load_property_data_from_dict(sample_property_with_photos)
 
         result = get_photos()

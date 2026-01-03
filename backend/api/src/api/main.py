@@ -22,7 +22,6 @@ from api.exceptions import register_exception_handlers
 from api.routes.area import router as area_router
 from api.routes.availability import router as availability_router
 from api.routes.customers import router as customers_router
-from api.routes.guests import router as guests_router
 from api.routes.health import router as health_router
 from api.routes.payments import router as payments_router
 from api.routes.pricing import router as pricing_router
@@ -63,7 +62,6 @@ app.include_router(availability_router)
 app.include_router(pricing_router)
 app.include_router(reservations_router)
 app.include_router(payments_router)
-app.include_router(guests_router)
 app.include_router(customers_router)
 app.include_router(property_router)
 app.include_router(area_router)

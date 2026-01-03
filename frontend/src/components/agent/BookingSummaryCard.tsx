@@ -8,6 +8,7 @@
 'use client'
 
 import * as React from 'react'
+import { Badge } from '@/components/ui/badge'
 
 // === Types ===
 
@@ -42,20 +43,19 @@ function formatDate(dateStr: string): string {
   }
 }
 
-function getStatusColor(status: string): { bg: string; text: string } {
+function getStatusVariant(
+  status: string
+): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status.toLowerCase()) {
     case 'confirmed':
-      return { bg: 'bg-green-100', text: 'text-green-800' }
-    case 'pending':
-      return { bg: 'bg-yellow-100', text: 'text-yellow-800' }
-    case 'cancelled':
-      return { bg: 'bg-red-100', text: 'text-red-800' }
     case 'paid':
-      return { bg: 'bg-green-100', text: 'text-green-800' }
-    case 'refunded':
-      return { bg: 'bg-gray-100', text: 'text-gray-800' }
+      return 'default'
+    case 'pending':
+      return 'secondary'
+    case 'cancelled':
+      return 'destructive'
     default:
-      return { bg: 'bg-gray-100', text: 'text-gray-600' }
+      return 'outline'
   }
 }
 
@@ -72,9 +72,6 @@ export function BookingSummaryCard({
   reservationStatus,
   className = '',
 }: BookingSummaryCardProps) {
-  const statusColors = getStatusColor(reservationStatus)
-  const paymentColors = getStatusColor(paymentStatus)
-
   const totalGuests = guests.adults + (guests.children || 0)
 
   return (
@@ -90,11 +87,9 @@ export function BookingSummaryCard({
             </p>
             <p className="font-mono font-semibold">{reservationId}</p>
           </div>
-          <div
-            className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors.bg} ${statusColors.text}`}
-          >
+          <Badge variant={getStatusVariant(reservationStatus)}>
             {reservationStatus}
-          </div>
+          </Badge>
         </div>
       </div>
 
@@ -141,11 +136,9 @@ export function BookingSummaryCard({
             <p className="text-xs text-gray-500 uppercase tracking-wide">
               Payment
             </p>
-            <span
-              className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${paymentColors.bg} ${paymentColors.text}`}
-            >
+            <Badge variant={getStatusVariant(paymentStatus)}>
               {paymentStatus}
-            </span>
+            </Badge>
           </div>
         </div>
 

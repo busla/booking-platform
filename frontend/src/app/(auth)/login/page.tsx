@@ -17,12 +17,12 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { signIn, confirmSignIn, getCurrentUser, signOut } from 'aws-amplify/auth'
 import { AmplifyProvider } from '@/components/providers/AmplifyProvider'
 
-type AuthStep = 'email' | 'otp' | 'success' | 'error'
+type LoginStep = 'email' | 'otp' | 'success' | 'error'
 
 function LoginLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-pulse text-gray-500">Loading...</div>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="animate-pulse text-muted-foreground">Loading...</div>
     </div>
   )
 }
@@ -31,7 +31,7 @@ function LoginContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  const [step, setStep] = useState<AuthStep>('email')
+  const [step, setStep] = useState<LoginStep>('email')
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -166,7 +166,7 @@ function LoginContent() {
 
   return (
     <AmplifyProvider>
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
         <div className="max-w-md w-full space-y-8">
           {/* Header */}
           <div className="text-center">
