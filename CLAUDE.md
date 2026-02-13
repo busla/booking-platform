@@ -151,4 +151,5 @@ NEXT_PUBLIC_AWS_REGION, NEXT_PUBLIC_COGNITO_IDENTITY_POOL_ID, NEXT_PUBLIC_AGENTC
 - DynamoDB (`verification_codes` table - already exists with TTL enabled) (019-e2e-email-otp)
 
 ## Recent Changes
-- 019-e2e-email-otp: Added Python 3.13+ (Lambda), TypeScript strict (E2E tests) + AWS Lambda, Cognito Custom Message Trigger, DynamoDB, Playwrigh
+- 020-frontend-cleanup: Frontend E2E test cleanup - removing debug files, PASSWORD_AUTH code, consolidating auth tests (in progress)
+- 019-e2e-email-otp: Added Python 3.13+ (Lambda), TypeScript strict (E2E tests) + AWS Lambda, Cognito Custom Message Trigger, DynamoDB, Playwright

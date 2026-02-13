@@ -33,7 +33,7 @@ const contactMethods = [
 
 const emergencyContacts = [
   { name: 'Local Emergency Services', number: '112', description: 'Police, Fire, Ambulance' },
-  { name: 'Property Manager', number: '+34 XXX XXX XXX', description: 'Urgent property issues' },
+  { name: 'Property Manager', number: '+3547798217', description: 'Urgent property issues' },
   { name: 'Nearest Hospital', number: 'Hospital Universitario de Torrevieja', description: '15 min drive' },
 ];
 

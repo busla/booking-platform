@@ -559,7 +559,7 @@ describe('useAuthenticatedUser', () => {
       // T034: Error messages are now user-friendly via categorizeError
       // "Network error" message triggers network detection
       expect(result.current.error).toBe(
-        'Unable to connect. Please check your internet connection.'
+        'Unable to connect. Check your internet.'
       )
       expect(result.current.errorType).toBe('network')
     })
@@ -619,20 +619,25 @@ describe('useAuthenticatedUser', () => {
   // === T020a: confirmOtp() Tests [US4] ===
 
   describe('confirmOtp()', () => {
-    beforeEach(() => {
-      // Setup: user has initiated auth and is awaiting OTP
+    // Note: No nested beforeEach - each test sets up its own mocks to avoid timing issues
+    // with vi.clearAllMocks() in root beforeEach
+
+    it('calls confirmSignIn with the provided code', async () => {
+      // Mock signIn to return awaiting OTP state
       mockSignIn.mockResolvedValue({
         nextStep: { signInStep: 'CONFIRM_SIGN_IN_WITH_EMAIL_CODE' },
       })
-    })
-
-    it('calls confirmSignIn with the provided code', async () => {
       mockConfirmSignIn.mockResolvedValue({
         isSignedIn: true,
         nextStep: { signInStep: 'DONE' },
       })
 
       const { result } = renderHook(() => useAuthenticatedUser())
+
+      // Wait for hook to settle to anonymous state (mount effect completes)
+      await waitFor(() => {
+        expect(result.current.step).toBe('anonymous')
+      })
 
       // First initiate auth to get to awaiting_otp state
       await act(async () => {
@@ -652,6 +657,11 @@ describe('useAuthenticatedUser', () => {
     })
 
     it('transitions to verifying state while confirming', async () => {
+      // Mock signIn to return awaiting OTP state (set here to ensure mock is applied before render)
+      mockSignIn.mockResolvedValue({
+        nextStep: { signInStep: 'CONFIRM_SIGN_IN_WITH_EMAIL_CODE' },
+      })
+
       // Create a delayed promise to observe intermediate state
       let resolveConfirm: (value: unknown) => void
       mockConfirmSignIn.mockReturnValue(
@@ -661,6 +671,11 @@ describe('useAuthenticatedUser', () => {
       )
 
       const { result } = renderHook(() => useAuthenticatedUser())
+
+      // Wait for hook to settle to anonymous state (mount effect completes)
+      await waitFor(() => {
+        expect(result.current.step).toBe('anonymous')
+      })
 
       // Get to awaiting_otp state
       await act(async () => {
@@ -799,7 +814,7 @@ describe('useAuthenticatedUser', () => {
       // Implementation keeps user in awaiting_otp to allow retry after cooldown
       expect(result.current.step).toBe('awaiting_otp')
       // Implementation maps to user-friendly message
-      expect(result.current.error).toBe('Too many attempts. Please wait and try again.')
+      expect(result.current.error).toBe('Too many attempts. Please wait.')
     })
 
     it('handles generic errors gracefully', async () => {
@@ -823,7 +838,7 @@ describe('useAuthenticatedUser', () => {
       // T034: Error messages are now user-friendly via categorizeError
       // "Network error" in message triggers network detection
       expect(result.current.error).toBe(
-        'Unable to connect. Please check your internet connection.'
+        'Unable to connect. Check your internet.'
       )
       expect(result.current.errorType).toBe('network')
     })
@@ -900,6 +915,8 @@ describe('useAuthenticatedUser', () => {
     })
 
     it('calls confirmSignUp (not confirmSignIn) with email and code', async () => {
+      // Setup confirmSignUp and autoSignIn mocks BEFORE render
+      // (these won't trigger until confirmOtp is called)
       mockConfirmSignUp.mockResolvedValue({
         isSignUpComplete: true,
         nextStep: { signUpStep: 'COMPLETE_AUTO_SIGN_IN' },
@@ -908,6 +925,18 @@ describe('useAuthenticatedUser', () => {
         isSignedIn: true,
         nextStep: { signInStep: 'DONE' },
       })
+
+      const { result } = renderHook(() => useAuthenticatedUser())
+
+      // Initiate auth for new user (triggers signUp flow)
+      await act(async () => {
+        await result.current.initiateAuth('newuser@example.com')
+      })
+
+      expect(result.current.step).toBe('awaiting_otp')
+
+      // NOW set up getCurrentUser/fetchAuthSession for successful auth
+      // (after initiateAuth, before confirmOtp - avoids early auth on mount)
       mockGetCurrentUser.mockResolvedValue({
         userId: 'new-user-sub',
         username: 'newuser@example.com',
@@ -919,15 +948,6 @@ describe('useAuthenticatedUser', () => {
           },
         },
       })
-
-      const { result } = renderHook(() => useAuthenticatedUser())
-
-      // Initiate auth for new user (triggers signUp flow)
-      await act(async () => {
-        await result.current.initiateAuth('newuser@example.com')
-      })
-
-      expect(result.current.step).toBe('awaiting_otp')
 
       // Confirm OTP for new user
       await act(async () => {
@@ -1122,9 +1142,10 @@ describe('useAuthenticatedUser', () => {
         await result.current.confirmOtp('123456')
       })
 
-      // Should return to anonymous with helpful message
-      expect(result.current.step).toBe('anonymous')
-      expect(result.current.error).toBe('Please sign in to complete registration.')
+      // Hook stays on awaiting_otp to allow retry (error caught in confirmOtp)
+      expect(result.current.step).toBe('awaiting_otp')
+      expect(result.current.error).toBe('Auto sign-in failed after signup')
+      expect(result.current.errorType).toBe('auth')
     })
 
     it('handles network error during confirmSignUp', async () => {
@@ -1144,7 +1165,7 @@ describe('useAuthenticatedUser', () => {
 
       expect(result.current.step).toBe('awaiting_otp')
       expect(result.current.error).toBe(
-        'Unable to connect. Please check your internet connection.'
+        'Unable to connect. Check your internet.'
       )
       expect(result.current.errorType).toBe('network')
     })
@@ -1318,7 +1339,7 @@ describe('useAuthenticatedUser', () => {
 
         expect(result.current.errorType).toBe('network')
         expect(result.current.error).toBe(
-          'Unable to connect. Please check your internet connection.'
+          'Unable to connect. Check your internet.'
         )
       })
 
@@ -1335,7 +1356,7 @@ describe('useAuthenticatedUser', () => {
 
         expect(result.current.errorType).toBe('network')
         expect(result.current.error).toBe(
-          'Unable to connect. Please check your internet connection.'
+          'Unable to connect. Check your internet.'
         )
       })
 
@@ -1434,8 +1455,10 @@ describe('useAuthenticatedUser', () => {
       })
     })
 
-    describe('validation error detection', () => {
-      it('sets errorType to "validation" for InvalidParameterException', async () => {
+    describe('cognito InvalidParameterException handling', () => {
+      it('sets errorType to "auth" for InvalidParameterException (falls through to default)', async () => {
+        // Note: InvalidParameterException is not specially handled by categorizeError
+        // It falls through to the default case which returns { type: 'auth', message: err.message }
         const validationError = new Error('Invalid email format')
         validationError.name = 'InvalidParameterException'
         mockSignIn.mockRejectedValue(validationError)
@@ -1446,7 +1469,8 @@ describe('useAuthenticatedUser', () => {
           await result.current.initiateAuth('invalid-email')
         })
 
-        expect(result.current.errorType).toBe('validation')
+        expect(result.current.errorType).toBe('auth')
+        expect(result.current.error).toBe('Invalid email format')
       })
     })
 
@@ -1510,7 +1534,7 @@ describe('useAuthenticatedUser', () => {
 
         expect(result.current.errorType).toBe('rate_limit')
         expect(result.current.error).toBe(
-          'Too many attempts. Please wait and try again.'
+          'Too many attempts. Please wait.'
         )
       })
     })

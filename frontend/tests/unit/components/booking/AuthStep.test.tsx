@@ -19,12 +19,31 @@ vi.mock('aws-amplify/auth', () => ({
   signIn: vi.fn(),
   signUp: vi.fn(),
   confirmSignIn: vi.fn(),
+  confirmSignUp: vi.fn(),
+  autoSignIn: vi.fn(),
   getCurrentUser: vi.fn(),
   fetchAuthSession: vi.fn(),
   signOut: vi.fn(),
 }))
 
-import { signIn, signUp, confirmSignIn, getCurrentUser, fetchAuthSession, signOut } from 'aws-amplify/auth'
+// Mock useCustomerProfile to prevent API calls and isolate tests
+// Returns error by default so AuthStep falls back to using cognito sub for onComplete
+vi.mock('@/hooks/useCustomerProfile', () => ({
+  useCustomerProfile: () => ({
+    syncCustomerProfile: vi.fn().mockResolvedValue({
+      error: 'Mock: profile sync disabled in tests',
+    }),
+    fetchCustomerProfile: vi.fn().mockResolvedValue({
+      error: 'Mock: profile fetch disabled in tests',
+    }),
+    isLoading: false,
+    error: null,
+    customer: null,
+    isReturning: false,
+  }),
+}))
+
+import { signIn, signUp, confirmSignIn, confirmSignUp, autoSignIn, getCurrentUser, fetchAuthSession, signOut } from 'aws-amplify/auth'
 
 // AuthStep component will be created in T012
 // For now, import will fail (TDD red phase)
@@ -34,6 +53,8 @@ import { AuthStep } from '@/components/booking/AuthStep'
 const mockSignIn = signIn as Mock
 const mockSignUp = signUp as Mock
 const mockConfirmSignIn = confirmSignIn as Mock
+const mockConfirmSignUp = confirmSignUp as Mock
+const mockAutoSignIn = autoSignIn as Mock
 const mockGetCurrentUser = getCurrentUser as Mock
 const mockFetchAuthSession = fetchAuthSession as Mock
 const mockSignOut = signOut as Mock
@@ -44,12 +65,14 @@ describe('AuthStep', () => {
   const mockOnFormChange = vi.fn()
 
   beforeEach(() => {
-    vi.clearAllMocks()
+    // resetAllMocks clears call history AND resets implementations
+    // This ensures mockImplementation() from previous tests doesn't leak
+    vi.resetAllMocks()
 
     // Default: getCurrentUser throws (not logged in) - hook will set step to 'anonymous'
     mockGetCurrentUser.mockRejectedValue(new Error('No current user'))
 
-    // Default: fetchAuthSession returns empty (for initial session check)
+    // Default: fetchAuthSession returns valid tokens (for post-auth session fetch)
     mockFetchAuthSession.mockResolvedValue({
       tokens: {
         idToken: {
@@ -64,13 +87,29 @@ describe('AuthStep', () => {
     // Default: signOut succeeds
     mockSignOut.mockResolvedValue(undefined)
 
-    // Default: signIn returns OTP challenge
-    mockSignIn.mockResolvedValue({
-      isSignedIn: false,
-      nextStep: { signInStep: 'CONFIRM_SIGN_IN_WITH_EMAIL_CODE' },
+    // Default: Simulate NEW USER (SignUp) flow - 6-digit codes
+    // This matches E2E tests which always create new users with unique emails.
+    //
+    // Flow: signIn throws UserNotFoundException → signUp → confirmSignUp → autoSignIn
+    // SignUp confirmation codes are 6 digits (vs SignIn EMAIL_OTP which is 8 digits)
+    const userNotFoundError = new Error('User not found')
+    userNotFoundError.name = 'UserNotFoundException'
+    mockSignIn.mockRejectedValue(userNotFoundError)
+
+    // signUp returns CONFIRM_SIGN_UP step (6-digit code sent)
+    mockSignUp.mockResolvedValue({
+      isSignUpComplete: false,
+      nextStep: { signUpStep: 'CONFIRM_SIGN_UP' },
     })
-    // Default: confirmSignIn succeeds
-    mockConfirmSignIn.mockResolvedValue({
+
+    // confirmSignUp succeeds
+    mockConfirmSignUp.mockResolvedValue({
+      isSignUpComplete: true,
+      nextStep: { signUpStep: 'DONE' },
+    })
+
+    // autoSignIn succeeds after signup confirmation
+    mockAutoSignIn.mockResolvedValue({
       isSignedIn: true,
       nextStep: { signInStep: 'DONE' },
     })
@@ -286,12 +325,13 @@ describe('AuthStep', () => {
     it('transitions to sending_otp state when "Verify Email" clicked', async () => {
       const user = userEvent.setup()
 
-      // Delay signIn to observe the OTP view during sending
-      let resolveSignIn: (value: unknown) => void
-      mockSignIn.mockImplementation(
+      // Delay signUp to observe the OTP view during sending
+      // (signIn throws UserNotFoundException, then signUp is called)
+      let resolveSignUp: (value: unknown) => void
+      mockSignUp.mockImplementation(
         () =>
           new Promise((resolve) => {
-            resolveSignIn = resolve
+            resolveSignUp = resolve
           })
       )
 
@@ -320,14 +360,15 @@ describe('AuthStep', () => {
       const resendButton = screen.getByRole('button', { name: /resend code/i })
       expect(resendButton).toBeDisabled()
 
-      // Cleanup - resolve the pending signIn
+      // Cleanup - resolve the pending signUp
       await act(async () => {
-        resolveSignIn!({
-          nextStep: { signInStep: 'CONFIRM_SIGN_IN_WITH_EMAIL_CODE' },
+        resolveSignUp!({
+          isSignUpComplete: false,
+          nextStep: { signUpStep: 'CONFIRM_SIGN_UP' },
         })
       })
 
-      // After signIn resolves, resend button should be enabled
+      // After signUp resolves, resend button should be enabled
       await waitFor(() => {
         expect(resendButton).not.toBeDisabled()
       })
@@ -359,9 +400,10 @@ describe('AuthStep', () => {
     it('transitions to verifying state when OTP is submitted (auto-submit on 6 digits)', async () => {
       const user = userEvent.setup()
 
-      // Delay confirmSignIn to observe loading state
+      // Delay confirmSignUp to observe loading state
+      // (SignUp flow uses confirmSignUp, not confirmSignIn)
       let resolveConfirm: (value: unknown) => void
-      mockConfirmSignIn.mockImplementation(
+      mockConfirmSignUp.mockImplementation(
         () =>
           new Promise((resolve) => {
             resolveConfirm = resolve
@@ -398,7 +440,7 @@ describe('AuthStep', () => {
 
       // Cleanup
       await act(async () => {
-        resolveConfirm!({ isSignedIn: true })
+        resolveConfirm!({ isSignUpComplete: true, nextStep: { signUpStep: 'DONE' } })
       })
     })
 
@@ -406,8 +448,8 @@ describe('AuthStep', () => {
       const user = userEvent.setup()
       const testUserId = 'test-user-id-123'
 
-      // After confirmSignIn succeeds, hook calls getCurrentUser and fetchAuthSession
-      // We need to make getCurrentUser succeed AFTER OTP verification
+      // SignUp flow: confirmSignUp → autoSignIn → fetchUserFromSession
+      // We need to make getCurrentUser succeed AFTER autoSignIn completes
       let otpVerified = false
       mockGetCurrentUser.mockImplementation(() => {
         if (otpVerified) {
@@ -427,8 +469,14 @@ describe('AuthStep', () => {
         },
       })
 
-      // Mock confirmSignIn to succeed and trigger user fetch
-      mockConfirmSignIn.mockImplementation(async () => {
+      // Mock confirmSignUp to succeed (SignUp flow uses 6-digit codes)
+      mockConfirmSignUp.mockResolvedValue({
+        isSignUpComplete: true,
+        nextStep: { signUpStep: 'DONE' },
+      })
+
+      // Mock autoSignIn to succeed and mark as verified
+      mockAutoSignIn.mockImplementation(async () => {
         otpVerified = true
         return {
           isSignedIn: true,
@@ -631,7 +679,8 @@ describe('AuthStep', () => {
       const user = userEvent.setup()
       const codeError = new Error('CodeMismatchException')
       codeError.name = 'CodeMismatchException'
-      mockConfirmSignIn.mockRejectedValue(codeError)
+      // SignUp flow uses confirmSignUp (6-digit codes)
+      mockConfirmSignUp.mockRejectedValue(codeError)
 
       render(
         <AuthStep
@@ -667,7 +716,8 @@ describe('AuthStep', () => {
       const user = userEvent.setup()
       const expiredError = new Error('ExpiredCodeException')
       expiredError.name = 'ExpiredCodeException'
-      mockConfirmSignIn.mockRejectedValue(expiredError)
+      // SignUp flow uses confirmSignUp (6-digit codes)
+      mockConfirmSignUp.mockRejectedValue(expiredError)
 
       render(
         <AuthStep
@@ -702,7 +752,8 @@ describe('AuthStep', () => {
       const user = userEvent.setup()
       const limitError = new Error('LimitExceededException')
       limitError.name = 'LimitExceededException'
-      mockConfirmSignIn.mockRejectedValue(limitError)
+      // SignUp flow uses confirmSignUp (6-digit codes)
+      mockConfirmSignUp.mockRejectedValue(limitError)
 
       render(
         <AuthStep
@@ -851,8 +902,8 @@ describe('AuthStep', () => {
     it('disables Back button while verifying', async () => {
       const user = userEvent.setup()
 
-      // Delay confirmSignIn
-      mockConfirmSignIn.mockImplementation(() => new Promise(() => {}))
+      // Delay confirmSignUp (SignUp flow uses 6-digit codes)
+      mockConfirmSignUp.mockImplementation(() => new Promise(() => {}))
 
       render(
         <AuthStep

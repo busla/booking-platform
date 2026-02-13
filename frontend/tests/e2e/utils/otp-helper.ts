@@ -15,10 +15,11 @@ const AWS_REGION = process.env.NEXT_PUBLIC_AWS_REGION || 'eu-west-1'
 const VERIFICATION_CODES_TABLE =
   process.env.VERIFICATION_CODES_TABLE || 'booking-dev-data-verification-codes'
 
-// Polling configuration per spec FR-003 (5 second window)
-const DEFAULT_TIMEOUT_MS = 5000
+// Polling configuration - increased from spec default to handle Lambda cold starts
+// and concurrent test execution. Lambda typically takes 700-1000ms to complete.
+const DEFAULT_TIMEOUT_MS = 15000
 const POLL_INTERVAL_MS = 500
-const MAX_RETRIES = Math.ceil(DEFAULT_TIMEOUT_MS / POLL_INTERVAL_MS)
+const INITIAL_DELAY_MS = 1000 // Allow time for Lambda to store code before first poll
 
 // Test email patterns - must match Lambda's TEST_EMAIL_PATTERNS
 const TEST_EMAIL_PATTERNS = [
@@ -79,7 +80,11 @@ export async function getOtpForEmail(
   }
 
   const client = new DynamoDBClient({ region: AWS_REGION })
-  const maxRetries = Math.ceil(timeoutMs / POLL_INTERVAL_MS)
+  const maxRetries = Math.ceil((timeoutMs - INITIAL_DELAY_MS) / POLL_INTERVAL_MS)
+
+  // Initial delay to allow Lambda time to process and store the code
+  // This prevents unnecessary DynamoDB queries before the code is likely to exist
+  await sleep(INITIAL_DELAY_MS)
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {

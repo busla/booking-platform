@@ -8,9 +8,13 @@
  *
  * Flow:
  * 1. User fills name/email/phone → clicks "Verify Email"
- * 2. OTP sent → 6-digit input appears
+ * 2. OTP sent → input appears (6 digits for new users, 8 for existing)
  * 3. User enters code → verification completes
  * 4. onComplete called with customerId
+ *
+ * OTP Code Lengths:
+ * - SignUp (new users): 6-digit confirmation code
+ * - SignIn (existing users): 8-digit EMAIL_OTP code
  *
  * Requirements: FR-002, FR-004, FR-005, FR-006, FR-008
  */
@@ -73,10 +77,14 @@ export function AuthStep({
     user,
     error,
     errorType,
+    isNewUser,
     initiateAuth,
     confirmOtp,
     retry,
   } = useAuthenticatedUser()
+
+  // OTP code length: 6 digits for SignUp (new users), 8 digits for SignIn (existing users)
+  const otpLength = isNewUser ? 6 : 8
 
   // Customer profile sync hook (T026-T029)
   const {
@@ -157,18 +165,17 @@ export function AuthStep({
     await initiateAuth(email)
   }, [form, initiateAuth])
 
-  // Handle OTP code change - auto-submit when 6 digits entered
-  // (Cognito EMAIL_OTP sends 6-digit verification codes)
+  // Handle OTP code change - auto-submit when all digits entered
   const handleOtpChange = useCallback(
     (value: string) => {
       setOtpCode(value)
 
-      // Auto-submit when all 6 digits entered
-      if (value.length === 6) {
+      // Auto-submit when all digits entered (6 for SignUp, 8 for SignIn)
+      if (value.length === otpLength) {
         confirmOtp(value)
       }
     },
-    [confirmOtp]
+    [confirmOtp, otpLength]
   )
 
   // Handle "Change Email" - go back to form view
@@ -328,26 +335,23 @@ export function AuthStep({
               <p className="font-medium">{pendingEmail}</p>
             </div>
 
-            {/* OTP Input - 6 slots (Cognito EMAIL_OTP sends 6-digit codes) */}
+            {/* OTP Input - dynamic slots (6 for SignUp, 8 for SignIn) */}
             <div className="space-y-2">
               <label htmlFor="otp-input" className="text-sm font-medium">
                 Verification code
               </label>
               <InputOTP
                 id="otp-input"
-                maxLength={6}
+                maxLength={otpLength}
                 value={otpCode}
                 onChange={handleOtpChange}
                 disabled={authStep === 'verifying'}
                 aria-label="Verification code"
               >
                 <InputOTPGroup>
-                  <InputOTPSlot index={0} data-slot="otp-slot" />
-                  <InputOTPSlot index={1} data-slot="otp-slot" />
-                  <InputOTPSlot index={2} data-slot="otp-slot" />
-                  <InputOTPSlot index={3} data-slot="otp-slot" />
-                  <InputOTPSlot index={4} data-slot="otp-slot" />
-                  <InputOTPSlot index={5} data-slot="otp-slot" />
+                  {Array.from({ length: otpLength }, (_, i) => (
+                    <InputOTPSlot key={i} index={i} data-slot="otp-slot" />
+                  ))}
                 </InputOTPGroup>
               </InputOTP>
             </div>

@@ -91,7 +91,6 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
       const checkOutStr = format(checkOut, 'yyyy-MM-dd')
 
       // Fetch from pricing API endpoint
-      // TODO: Replace with actual API endpoint when backend is ready
       const response = await fetch(
         `/api/pricing?check_in=${checkInStr}&check_out=${checkOutStr}&guests=${guests}`
       )
