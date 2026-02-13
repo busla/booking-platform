@@ -50,6 +50,8 @@ export interface UseAuthenticatedUserReturn {
   user: AuthenticatedUser | null
   error: string | null
   errorType: ErrorType
+  /** True if user is signing up (6-digit code), false if signing in (8-digit code) */
+  isNewUser: boolean
   initiateAuth: (email: string) => Promise<void>
   confirmOtp: (code: string) => Promise<void>
   signOut: () => Promise<void>
@@ -124,9 +126,9 @@ export function useAuthenticatedUser(): UseAuthenticatedUserReturn {
   const [user, setUser] = useState<AuthenticatedUser | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [errorType, setErrorType] = useState<ErrorType>(null)
+  const [isNewUser, setIsNewUser] = useState(false)
 
-  // Track flow type for OTP confirmation
-  const isNewUser = useRef(false)
+  // Track pending email for OTP confirmation
   const pendingEmail = useRef<string>('')
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -167,7 +169,7 @@ export function useAuthenticatedUser(): UseAuthenticatedUserReturn {
     setErrorType(null)
     setStep('sending_otp')
     pendingEmail.current = email
-    isNewUser.current = false
+    setIsNewUser(false)
 
     try {
       // Try sign in for existing user
@@ -241,7 +243,7 @@ export function useAuthenticatedUser(): UseAuthenticatedUserReturn {
   // handleSignUp - Create new user with EMAIL_OTP
   // ──────────────────────────────────────────────────────────────────────────
   async function handleSignUp(email: string) {
-    isNewUser.current = true
+    setIsNewUser(true)
 
     try {
       const result = await signUp({
@@ -289,8 +291,8 @@ export function useAuthenticatedUser(): UseAuthenticatedUserReturn {
     setStep('verifying')
 
     try {
-      if (isNewUser.current) {
-        // New user: confirmSignUp → autoSignIn
+      if (isNewUser) {
+        // New user: confirmSignUp → autoSignIn (6-digit code)
         await confirmSignUp({
           username: pendingEmail.current,
           confirmationCode: code,
@@ -301,7 +303,7 @@ export function useAuthenticatedUser(): UseAuthenticatedUserReturn {
           throw new Error('Auto sign-in failed after signup')
         }
       } else {
-        // Existing user: confirmSignIn
+        // Existing user: confirmSignIn (8-digit code)
         const result = await confirmSignIn({ challengeResponse: code })
         if (!result.isSignedIn) {
           throw new Error('Sign-in verification failed')
@@ -319,7 +321,7 @@ export function useAuthenticatedUser(): UseAuthenticatedUserReturn {
       setErrorType(type)
       setStep('awaiting_otp') // Stay on OTP screen for retry
     }
-  }, [])
+  }, [isNewUser])
 
   // ──────────────────────────────────────────────────────────────────────────
   // signOut - Clear session
@@ -336,10 +338,10 @@ export function useAuthenticatedUser(): UseAuthenticatedUserReturn {
   const retry = useCallback(() => {
     setError(null)
     setErrorType(null)
-    isNewUser.current = false
+    setIsNewUser(false)
     pendingEmail.current = ''
     setStep('anonymous')
   }, [])
 
-  return { step, user, error, errorType, initiateAuth, confirmOtp, signOut, retry }
+  return { step, user, error, errorType, isNewUser, initiateAuth, confirmOtp, signOut, retry }
 }

@@ -107,13 +107,25 @@ def is_test_email(email: str) -> bool:
     return any(pattern.match(email) for pattern in TEST_EMAIL_PATTERNS)
 
 
-def should_store_otp(email: str) -> bool:
+def should_store_otp(email: str, trigger_source: str) -> bool:
     """Determine if OTP should be stored in DynamoDB.
 
     Only stores in dev environment for test email patterns.
+    Only stores SignUp codes (not Authentication codes) to avoid race condition
+    where Authentication's 8-digit code overwrites SignUp's 6-digit code.
+
+    E2E tests always create new users with unique emails, so they only ever need
+    the SignUp confirmation code.
     """
     environment = os.environ.get("ENVIRONMENT", "")
     if environment != "dev":
+        return False
+
+    # Only store SignUp codes - E2E tests create new users with unique emails
+    # and need the 6-digit SignUp confirmation code, not the 8-digit SignIn code.
+    # When autoSignIn is enabled, BOTH triggers fire simultaneously and the
+    # Authentication code would overwrite the SignUp code in DynamoDB.
+    if trigger_source != "CustomEmailSender_SignUp":
         return False
 
     return is_test_email(email)
@@ -124,7 +136,7 @@ def store_otp(email: str, code: str, trigger_source: str) -> None:
 
     Args:
         email: User's email address (partition key)
-        code: Decrypted 6-digit OTP code
+        code: Decrypted OTP code (6-digit for SignUp, 8-digit for SignIn)
         trigger_source: Cognito trigger type for debugging
     """
     table_name = os.environ.get("VERIFICATION_CODES_TABLE")
@@ -261,8 +273,8 @@ def handler(event: dict[str, Any], context: Any) -> None:
         logger.error(f"Failed to decrypt code: {e}")
         raise
 
-    # Store OTP for E2E test retrieval (test emails in dev only)
-    if should_store_otp(email):
+    # Store OTP for E2E test retrieval (test emails in dev only, SignUp codes only)
+    if should_store_otp(email, trigger_source):
         store_otp(email, code, trigger_source)
 
     # Send email via SES (all emails)

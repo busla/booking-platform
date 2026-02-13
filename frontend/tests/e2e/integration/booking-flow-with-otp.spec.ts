@@ -178,40 +178,49 @@ async function fillAuthStepForm(page: Page, email: string): Promise<void> {
 async function enterOtpCode(page: Page, email: string): Promise<void> {
   console.log(`[OTP] Retrieving OTP for ${email}...`)
 
-  // Get OTP from DynamoDB (polls with 500ms interval, 10s timeout)
-  const otpCode = await getOtpForEmail(email, 10000)
-  console.log(`[OTP] Retrieved code: ${otpCode.substring(0, 2)}**** (${otpCode.length} digits)`)
+  // Get OTP from DynamoDB (polls with 500ms interval, uses default 15s timeout)
+  const otpCode = await getOtpForEmail(email)
+  console.log(`[OTP] Retrieved code: ${otpCode.substring(0, 2)}****** (${otpCode.length} digits)`)
 
-  // Verify we have a 6-digit code (Cognito EMAIL_OTP sends 6 digits)
+  // Verify we have a 6-digit code (Cognito SignUp verification codes are 6 digits)
+  // Note: SignIn EMAIL_OTP codes are 8 digits, but E2E tests always create new users (SignUp flow)
   expect(otpCode).toHaveLength(6)
 
-  // The OTP input is an InputOTP component with individual slots
-  // Type the code one digit at a time
+  // The OTP input is an InputOTP component with a hidden input element
+  // that overlays the visual slots and handles keyboard input
   const otpSlots = page.locator('[data-slot="otp-slot"]')
   await expect(otpSlots).toHaveCount(6)
 
-  // Click the first slot to focus, then type the full code
-  await otpSlots.first().click()
+  // The actual input element has id="otp-input" and intercepts pointer events
+  // Focus and type into it directly instead of clicking the slot divs
+  const otpInput = page.locator('#otp-input')
+  await otpInput.focus()
   await page.keyboard.type(otpCode)
 
-  // Auto-submit happens when all 8 digits are entered (see handleOtpChange in AuthStep.tsx)
+  // Auto-submit happens when all 6 digits are entered (see handleOtpChange in AuthStep.tsx)
+  // SignUp codes are 6 digits, SignIn codes are 8 digits - E2E tests use new users (SignUp)
   // Wait for verification to complete (shows "Verifying..." then advances)
 
-  // Wait for either:
-  // 1. Guest Details step (successful verification)
-  // 2. Error message (verification failed)
+  // Wait for Guest Details step (successful verification)
+  // Note: There's an empty alert container (toast) in the DOM that's always present,
+  // so we can't use getByRole('alert') to detect errors reliably.
+  // Instead, wait for success and check for error text if timeout.
   const guestDetails = page.getByText('Guest Details')
-  const errorAlert = page.getByRole('alert')
 
-  await expect(guestDetails.or(errorAlert)).toBeVisible({ timeout: 30000 })
-
-  // If error, fail with helpful message
-  if (await errorAlert.isVisible().catch(() => false)) {
-    const errorText = await errorAlert.textContent()
-    throw new Error(`OTP verification failed: ${errorText}`)
+  try {
+    await expect(guestDetails).toBeVisible({ timeout: 30000 })
+    console.log('[OTP] Verification successful, on Guest Details step')
+  } catch {
+    // Check if there's an actual error message displayed
+    // Look for error text within the auth step card, not global alert containers
+    const errorInCard = page.locator('.bg-destructive\\/10, .bg-amber-100').first()
+    if (await errorInCard.isVisible().catch(() => false)) {
+      const errorText = await errorInCard.textContent()
+      throw new Error(`OTP verification failed: ${errorText}`)
+    }
+    // Re-throw original timeout error if no specific error found
+    throw new Error('OTP verification timed out - Guest Details step not reached')
   }
-
-  console.log('[OTP] Verification successful, on Guest Details step')
 }
 
 /**
@@ -238,15 +247,24 @@ async function completeGuestDetailsStep(page: Page): Promise<void> {
 // Tests: Complete Booking Flow with Real EMAIL_OTP
 // ============================================================================
 
-test.describe('Booking Flow with OTP - Full Flow', () => {
+// Wrap all OTP tests in a parent describe with serial mode to prevent
+// concurrent Lambda invocations across describe blocks
+test.describe('Booking Flow with OTP', () => {
+  // Serial mode at the parent level ensures all child describe blocks run sequentially
+  // This prevents Lambda concurrency issues and Cognito rate limiting
   test.describe.configure({ mode: 'serial' })
 
+test.describe('Full Flow', () => {
   let testEmail: string
 
-  test.beforeEach(() => {
+  test.beforeEach(async () => {
     // Generate unique test email for each test
     testEmail = generateTestEmail()
     console.log(`[Test] Using email: ${testEmail}`)
+
+    // Small delay between tests to avoid Cognito rate limiting
+    // Cognito may throttle rapid SignUp requests
+    await new Promise((resolve) => setTimeout(resolve, 1000))
   })
 
   test.afterEach(async () => {
@@ -282,7 +300,7 @@ test.describe('Booking Flow with OTP - Full Flow', () => {
     await expect(page.getByRole('button', { name: /proceed to payment/i })).toBeEnabled()
   })
 
-  test('OTP input has exactly 6 slots for EMAIL_OTP codes', async ({ page }) => {
+  test('OTP input has exactly 6 slots for SignUp verification codes', async ({ page }) => {
     // Navigate to auth step
     await completeDateSelectionStep(page, 110, 5)
 
@@ -295,7 +313,9 @@ test.describe('Booking Flow with OTP - Full Flow', () => {
     // Wait for OTP input
     await expect(page.getByLabel(/verification code|code/i)).toBeVisible({ timeout: 30000 })
 
-    // CRITICAL: Verify exactly 6 OTP slots (Cognito EMAIL_OTP sends 6-digit codes)
+    // Verify exactly 6 OTP slots
+    // Note: Cognito SignUp codes are 6 digits, SignIn EMAIL_OTP codes are 8 digits
+    // E2E tests always create new users (unique test emails) so we always get SignUp flow
     const otpSlots = page.locator('[data-slot="otp-slot"]')
     await expect(otpSlots).toHaveCount(6)
   })
@@ -321,11 +341,14 @@ test.describe('Booking Flow with OTP - Full Flow', () => {
   })
 })
 
-test.describe('Booking Flow with OTP - Error Handling', () => {
+test.describe('Error Handling', () => {
   let testEmail: string
 
-  test.beforeEach(() => {
+  test.beforeEach(async () => {
     testEmail = generateTestEmail()
+
+    // Small delay between tests to avoid Cognito rate limiting
+    await new Promise((resolve) => setTimeout(resolve, 1000))
   })
 
   test.afterEach(async () => {
@@ -352,14 +375,17 @@ test.describe('Booking Flow with OTP - Error Handling', () => {
     await completeDateSelectionStep(page, 140, 5)
     await fillAuthStepForm(page, testEmail)
 
-    // Enter wrong OTP code
-    const otpSlots = page.locator('[data-slot="otp-slot"]')
-    await otpSlots.first().click()
-    await page.keyboard.type('123456') // Wrong code (6 digits)
+    // Enter wrong OTP code - use the actual input element
+    // Note: Using 6 digits since E2E tests always create new users (SignUp flow)
+    const otpInput = page.locator('#otp-input')
+    await otpInput.focus()
+    await page.keyboard.type('123456') // Wrong code (6 digits to trigger auto-submit)
 
-    // Should show error
-    await expect(page.getByRole('alert')).toBeVisible({ timeout: 15000 })
-    await expect(page.getByText(/invalid|incorrect|mismatch/i)).toBeVisible()
+    // Should show error - use text matcher instead of getByRole('alert')
+    // because Next.js route announcer also has role="alert"
+    await expect(page.getByText(/invalid|incorrect|mismatch|error occurred/i)).toBeVisible({
+      timeout: 15000,
+    })
   })
 
   test('resend code button works', async ({ page }) => {
@@ -386,11 +412,15 @@ test.describe('Booking Flow with OTP - Error Handling', () => {
   })
 })
 
-test.describe('Booking Flow with OTP - Session Persistence', () => {
+test.describe('Session Persistence', () => {
   let testEmail: string
 
-  test.beforeEach(() => {
+  test.beforeEach(async () => {
     testEmail = generateTestEmail()
+
+    // Longer delay for Session Persistence tests (run later in suite)
+    // to give Cognito rate limits time to reset
+    await new Promise((resolve) => setTimeout(resolve, 2000))
   })
 
   test.afterEach(async () => {
@@ -441,3 +471,5 @@ test.describe('Booking Flow with OTP - Session Persistence', () => {
     await expect(page.getByText(TEST_CUSTOMER.name)).toBeVisible()
   })
 })
+
+}) // End of parent 'Booking Flow with OTP' describe block

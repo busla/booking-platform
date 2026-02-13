@@ -2,15 +2,15 @@
  * Cognito Authentication Fixture for E2E Tests
  *
  * Provides authenticated Playwright contexts for tests that need real
- * Cognito authentication. Credentials are automatically loaded from
- * AWS SSM Parameter Store:
+ * Cognito authentication via EMAIL_OTP flow. Credentials are automatically
+ * loaded from AWS SSM Parameter Store or environment variables:
  *
- *   /booking/e2e/test-user-email    - Email address for the test user
- *   /booking/e2e/test-user-password - Password for the test user (SecureString)
+ *   SSM: /booking/e2e/test-user-email - Email address for the test user
+ *   Env: E2E_TEST_USER_EMAIL          - Email address for the test user
  *
- * Environment variables can override SSM values:
- *   E2E_TEST_USER_EMAIL    - Email address for the test user
- *   E2E_TEST_USER_PASSWORD - Password for the test user
+ * The fixture supports two modes:
+ * 1. Stored state reuse - If valid auth state exists in .auth-state/user.json
+ * 2. EMAIL_OTP flow - Manual OTP entry for fresh authentication
  *
  * Usage:
  *   import { test } from '../fixtures/auth.fixture'
@@ -23,11 +23,6 @@
 import { test as base, expect, type Page, type BrowserContext } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
-import {
-  CognitoIdentityProviderClient,
-  InitiateAuthCommand,
-  type InitiateAuthCommandOutput,
-} from '@aws-sdk/client-cognito-identity-provider'
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm'
 
 // ============================================================================
@@ -50,11 +45,9 @@ const AUTH_STATE_PATH = path.join(__dirname, '..', '.auth-state', 'user.json')
 
 /** SSM Parameter paths for credentials */
 const SSM_EMAIL_PARAM = '/booking/e2e/test-user-email'
-const SSM_PASSWORD_PARAM = '/booking/e2e/test-user-password'
 
 /** Test user credentials - loaded from SSM or environment */
 let TEST_USER_EMAIL = ''
-let TEST_USER_PASSWORD = ''
 let credentialsLoaded = false
 
 /** Cognito configuration (must match frontend .env.local) */
@@ -101,7 +94,6 @@ async function loadCredentials(): Promise<void> {
 
   // Try environment variables first (allows local override)
   TEST_USER_EMAIL = process.env.E2E_TEST_USER_EMAIL || ''
-  TEST_USER_PASSWORD = process.env.E2E_TEST_USER_PASSWORD || ''
 
   // If not in env, try SSM
   if (!TEST_USER_EMAIL) {
@@ -109,21 +101,10 @@ async function loadCredentials(): Promise<void> {
     TEST_USER_EMAIL = (await getSSMParameter(SSM_EMAIL_PARAM)) || ''
   }
 
-  if (!TEST_USER_PASSWORD) {
-    console.log('   Fetching password from SSM (SecureString)...')
-    TEST_USER_PASSWORD = (await getSSMParameter(SSM_PASSWORD_PARAM, true)) || ''
-  }
-
   if (TEST_USER_EMAIL) {
     console.log(`   ✅ Email loaded: ${TEST_USER_EMAIL}`)
   } else {
     console.log('   ⚠️ No email found in env or SSM')
-  }
-
-  if (TEST_USER_PASSWORD) {
-    console.log('   ✅ Password loaded')
-  } else {
-    console.log('   ⚠️ No password found in env or SSM')
   }
 
   credentialsLoaded = true
@@ -245,60 +226,6 @@ function extractTokensFromStoredState(): { idToken: string; accessToken: string;
     return null
   } catch {
     return null
-  }
-}
-
-/**
- * Authenticate programmatically using username/password.
- * Uses USER_PASSWORD_AUTH flow with Cognito directly.
- *
- * Returns tokens in Amplify localStorage format for injection into browser.
- */
-async function authenticateWithPassword(): Promise<{
-  idToken: string
-  accessToken: string
-  refreshToken: string
-  username: string
-}> {
-  if (!TEST_USER_EMAIL || !TEST_USER_PASSWORD) {
-    throw new Error(
-      'Password authentication requires credentials. Set E2E_TEST_USER_EMAIL and E2E_TEST_USER_PASSWORD env vars, ' +
-      'or configure SSM parameters at /booking/e2e/test-user-email and /booking/e2e/test-user-password'
-    )
-  }
-
-  console.log(`🔐 Authenticating via password for: ${TEST_USER_EMAIL}`)
-
-  const client = new CognitoIdentityProviderClient({ region: AWS_REGION })
-
-  const response: InitiateAuthCommandOutput = await client.send(
-    new InitiateAuthCommand({
-      AuthFlow: 'USER_PASSWORD_AUTH',
-      ClientId: COGNITO_CLIENT_ID,
-      AuthParameters: {
-        USERNAME: TEST_USER_EMAIL,
-        PASSWORD: TEST_USER_PASSWORD,
-      },
-    })
-  )
-
-  if (!response.AuthenticationResult) {
-    throw new Error('Authentication failed - no tokens returned')
-  }
-
-  const { IdToken, AccessToken, RefreshToken } = response.AuthenticationResult
-
-  if (!IdToken || !AccessToken) {
-    throw new Error('Authentication failed - missing required tokens')
-  }
-
-  console.log('✅ Password authentication successful')
-
-  return {
-    idToken: IdToken,
-    accessToken: AccessToken,
-    refreshToken: RefreshToken || '',
-    username: TEST_USER_EMAIL,
   }
 }
 
@@ -494,51 +421,6 @@ export const test = base.extend<AuthFixtures>({
         },
         storedTokens
       )
-    } else if (TEST_USER_PASSWORD) {
-      // CI mode: Use password authentication (no manual intervention)
-      console.log('🔄 Using password authentication (CI mode)')
-
-      // First, authenticate via Cognito API to get tokens
-      const tokens = await authenticateWithPassword()
-
-      // Parse idToken to get the 'sub' (Cognito user ID)
-      const idTokenPayload = JSON.parse(
-        Buffer.from(tokens.idToken.split('.')[1], 'base64').toString()
-      )
-      const cognitoUsername = idTokenPayload.sub || tokens.username
-
-      // Create context with init script that has tokens embedded
-      context = await browser.newContext({
-        baseURL: LIVE_SITE_URL,
-      })
-
-      // Add init script with tokens passed directly (not from localStorage)
-      // This ensures window.__MOCK_AUTH__ is set on every page load
-      await context.addInitScript(
-        ({ idToken, accessToken, username }) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(window as any).__MOCK_AUTH__ = {
-            tokens: {
-              idToken: { toString: () => idToken },
-              accessToken: { toString: () => accessToken },
-            },
-            user: { username },
-          }
-        },
-        { idToken: tokens.idToken, accessToken: tokens.accessToken, username: cognitoUsername }
-      )
-
-      // Now create a page, inject localStorage, and save state
-      const page = await context.newPage()
-      await page.goto(LIVE_SITE_URL)
-      await page.waitForLoadState('domcontentloaded')
-
-      // Inject localStorage for Amplify (backup) and to persist to auth state file
-      await injectAmplifyTokens(page, tokens)
-
-      // Save auth state (includes localStorage which we can reuse later)
-      await saveAuthState(context)
-      await page.close()
     } else {
       // Manual mode: Use EMAIL_OTP flow (requires manual code entry)
       console.log('🔄 No stored auth state, performing fresh login (EMAIL_OTP)')
@@ -595,30 +477,18 @@ if (require.main === module) {
       process.exit(1)
     }
 
-    // Use headless for password auth, visible for OTP
-    const headless = !!TEST_USER_PASSWORD
-    console.log(`   Mode: ${TEST_USER_PASSWORD ? 'Password (CI)' : 'EMAIL_OTP (manual)'}`)
-    console.log(`   Headless: ${headless}\n`)
+    // EMAIL_OTP mode - requires visible browser for manual code entry
+    console.log('   Mode: EMAIL_OTP (manual)\n')
 
-    const browser = await chromium.launch({ headless })
+    const browser = await chromium.launch({ headless: false })
     const context = await browser.newContext({
       baseURL: LIVE_SITE_URL,
     })
     const page = await context.newPage()
 
     try {
-      if (TEST_USER_PASSWORD) {
-        // Password auth mode - fully automated
-        await page.goto(LIVE_SITE_URL)
-        await page.waitForLoadState('domcontentloaded')
-        const tokens = await authenticateWithPassword()
-        await injectAmplifyTokens(page, tokens)
-        await page.reload()
-        await page.waitForLoadState('networkidle')
-      } else {
-        // EMAIL_OTP mode - requires manual code entry
-        await authenticateViaUI(page)
-      }
+      // EMAIL_OTP mode - requires manual code entry
+      await authenticateViaUI(page)
 
       await saveAuthState(context)
       console.log('\n✅ Auth setup complete! You can now run tests with stored state.')
